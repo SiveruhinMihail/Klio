@@ -1,4 +1,93 @@
+<template>
+  <div class="container mx-auto px-4 py-6 max-w-5xl">
+    <h1 class="text-3xl font-bold mb-6 text-gray-800">Редактировать профиль</h1>
+
+    <form @submit.prevent="handleSubmit" class="space-y-6">
+      <!-- Аватар -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2"
+          >Аватар</label
+        >
+        <AvatarUpload />
+      </div>
+
+      <!-- Имя пользователя (username) -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1"
+          >Имя пользователя *</label
+        >
+        <input
+          v-model="form.username"
+          type="text"
+          required
+          class="w-full px-4 py-2 bg-white border border-primary/20 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition"
+          :class="{ 'border-red-500': usernameError }"
+          @blur="validateUsername"
+          placeholder="your_username"
+        />
+        <p v-if="usernameError" class="text-xs text-red-500 mt-1">
+          {{ usernameError }}
+        </p>
+        <p v-else class="text-xs text-gray-500 mt-1">
+          Только латиница, цифры и подчёркивание. Уникальное имя.
+        </p>
+      </div>
+
+      <!-- Отображаемое имя (use) -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1"
+          >Отображаемое имя</label
+        >
+        <input
+          v-model="form.use"
+          type="text"
+          class="w-full px-4 py-2 bg-white border border-primary/20 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition"
+          placeholder="Имя для отображения"
+        />
+      </div>
+
+      <!-- Описание (Markdown) с предпросмотром -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1"
+          >Описание (поддерживает Markdown)</label
+        >
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <textarea
+            v-model="form.description"
+            rows="8"
+            class="w-full px-4 py-2 bg-white border border-primary/20 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition font-mono text-sm resize-y"
+            placeholder="Введите описание в Markdown..."
+          ></textarea>
+          <div
+            class="prose prose-sm max-w-none p-4 bg-gray-50 border border-primary/20 rounded-lg overflow-auto h-[300px]"
+            v-html="renderedPreview"
+          />
+        </div>
+      </div>
+
+      <!-- Кнопки -->
+      <div class="flex justify-end gap-3 pt-4 border-t border-primary/10">
+        <button
+          type="button"
+          @click="cancel"
+          class="px-5 py-2 border border-primary/30 rounded-lg text-primary hover:bg-primary/5 transition"
+        >
+          Отмена
+        </button>
+        <button
+          type="submit"
+          :disabled="submitting || !!usernameError"
+          class="px-5 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {{ submitting ? "Сохранение..." : "Сохранить" }}
+        </button>
+      </div>
+    </form>
+  </div>
+</template>
+
 <script setup lang="ts">
+import { ref, computed, onMounted } from "vue";
 import MarkdownIt from "markdown-it";
 import AvatarUpload from "~/components/AvatarUpload.vue";
 
@@ -24,7 +113,7 @@ const loading = ref(true);
 const md = new MarkdownIt();
 const renderedPreview = computed(() => md.render(form.value.description || ""));
 
-// Загружаем текущий профиль
+// Загрузка текущего профиля
 const loadEditProfile = async () => {
   if (!userId.value) return;
   const { data, error } = await supabase
@@ -96,84 +185,3 @@ function cancel() {
 
 onMounted(loadEditProfile);
 </script>
-
-<template>
-  <div class="container mx-auto px-4 py-6 max-w-2xl">
-    <h1 class="text-3xl font-bold mb-6">Редактировать профиль</h1>
-
-    <form @submit.prevent="handleSubmit">
-      <!-- Аватар -->
-      <div class="mb-6">
-        <label class="block text-sm font-medium mb-2">Аватар</label>
-        <AvatarUpload />
-      </div>
-
-      <!-- Имя пользователя (username) -->
-      <div class="mb-4">
-        <label class="block text-sm font-medium mb-1">Имя пользователя *</label>
-        <input
-          v-model="form.username"
-          type="text"
-          required
-          class="w-full border rounded p-2"
-          :class="{ 'border-red-500': usernameError }"
-          @blur="validateUsername"
-        />
-        <p v-if="usernameError" class="text-red-500 text-xs mt-1">
-          {{ usernameError }}
-        </p>
-        <p v-else class="text-gray-500 text-xs mt-1">
-          Только латиница, цифры и подчёркивание. Уникальное имя.
-        </p>
-      </div>
-
-      <!-- Отображаемое имя (use) -->
-      <div class="mb-4">
-        <label class="block text-sm font-medium mb-1">Отображаемое имя</label>
-        <input
-          v-model="form.use"
-          type="text"
-          class="w-full border rounded p-2"
-        />
-      </div>
-
-      <!-- Описание (Markdown) -->
-      <div class="mb-4">
-        <label class="block text-sm font-medium mb-1"
-          >Описание (поддерживает Markdown)</label
-        >
-        <div class="grid grid-cols-2 gap-4">
-          <textarea
-            v-model="form.description"
-            rows="8"
-            class="w-full border rounded p-2 font-mono text-sm"
-            placeholder="Введите описание в Markdown..."
-          ></textarea>
-          <div
-            class="prose prose-sm max-w-none border rounded p-2 overflow-auto"
-          >
-            <div v-html="renderedPreview"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Кнопки -->
-      <div class="flex justify-end gap-2">
-        <button
-          type="button"
-          class="px-4 py-2 text-gray-600 hover:text-gray-800"
-          @click="cancel"
-        >
-          Отмена
-        </button>
-        <button
-          type="submit"
-          :disabled="submitting || !!usernameError"
-          class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-        >
-          {{ submitting ? "Сохранение..." : "Сохранить" }}
-        </button>
-      </div>
-    </form>
-  </div>
-</template>

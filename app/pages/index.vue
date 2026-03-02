@@ -2,11 +2,56 @@
 const supabase = useSupabaseClient();
 const { getHomeFeed, getRecommendedPosts } = usePosts();
 const { isAuthenticated, userId } = useAuth();
+import { MagnifyingGlassIcon } from "@heroicons/vue/24/outline";
+import { onClickOutside } from "@vueuse/core";
 
-const feed = ref<any[]>([]);
+// Все категории с постами (загружаются один раз)
+const allCategories = ref<any[]>([]);
 const recommendedPosts = ref<any[]>([]);
 const loading = ref(true);
 
+const searchPosts = ref<any[]>([]);
+const searchTotal = ref(0);
+const searchPage = ref(0);
+const searchHasMore = ref(false);
+const searchPerPage = 12;
+const searchLoading = ref(false);
+const searchContainer = ref<HTMLElement | null>(null);
+const showSearchResults = ref(false);
+
+onClickOutside(searchContainer, () => {
+  showSearchResults.value = false;
+});
+
+// Пагинация
+const visibleCount = ref(7); // сколько категорий показываем
+const pageSize = 7;
+
+// Вычисляем видимые категории
+const visibleCategories = computed(() =>
+  allCategories.value.slice(0, visibleCount.value),
+);
+const hasMore = computed(() => visibleCount.value < allCategories.value.length);
+
+// Загрузка всех данных
+async function loadFeed() {
+  loading.value = true;
+  try {
+    const [recommended, categoriesFeed] = await Promise.all([
+      getRecommendedPosts(10),
+      getHomeFeed(),
+    ]);
+
+    recommendedPosts.value = await enrichPostsWithUserData(recommended || []);
+    allCategories.value = categoriesFeed;
+  } catch (e) {
+    console.error("Ошибка загрузки ленты:", e);
+  } finally {
+    loading.value = false;
+  }
+}
+
+// Обогащение постов данными (без изменений)
 async function enrichPostsWithUserData(posts: any[]) {
   if (!isAuthenticated.value || !userId.value || !posts.length) return posts;
 
@@ -35,117 +80,18 @@ async function enrichPostsWithUserData(posts: any[]) {
     isLiked: likedPostIds.has(post.id),
     isFavorited: favoritedPostIds.has(post.id),
     rating: post.rating || 0,
-    // поле likes уже есть в данных из запроса
   }));
 }
 
-async function loadFeed() {
-  loading.value = true;
-  try {
-    const [recommended, categoriesFeed] = await Promise.all([
-      getRecommendedPosts(10), // без sortBy
-      getHomeFeed(12), // без sortBy
-    ]);
-
-    recommendedPosts.value = await enrichPostsWithUserData(recommended || []);
-    const enrichedFeed = await Promise.all(
-      categoriesFeed.map(async (item) => ({
-        ...item,
-        posts: item.posts ? await enrichPostsWithUserData(item.posts) : [],
-      })),
-    );
-    feed.value = enrichedFeed;
-  } catch (e) {
-    console.error("Ошибка загрузки ленты:", e);
-  } finally {
-    loading.value = false;
+function handleSearchInstant() {
+  if (searchQuery.value) {
+    debouncedSearch.cancel?.();
+    showSearchResults.value = false; // скрыть подсказки
+    performSearch(searchQuery.value, false);
   }
 }
 
-function updatePost(updatedPost: any) {
-  const recIndex = recommendedPosts.value.findIndex(
-    (p: any) => p.id === updatedPost.id,
-  );
-  if (recIndex !== -1) {
-    recommendedPosts.value[recIndex] = { ...updatedPost };
-  }
-  for (const category of feed.value) {
-    const postIndex = category.posts.findIndex(
-      (p: any) => p.id === updatedPost.id,
-    );
-    if (postIndex !== -1) {
-      category.posts[postIndex] = { ...updatedPost };
-    }
-  }
-}
-
-async function handleLike(post: any) {
-  if (!isAuthenticated.value || !userId.value) return;
-  try {
-    if (post.isLiked) {
-      await supabase
-        .from("like_to_post")
-        .delete()
-        .eq("post_id", post.id)
-        .eq("user_id", userId.value);
-      // Уменьшаем счётчик в likes
-      if (post.likes && post.likes[0]) {
-        post.likes[0].count -= 1;
-      }
-      // Уменьшаем rating, если используется
-      if (post.rating !== undefined) post.rating -= 1;
-    } else {
-      await supabase
-        .from("like_to_post")
-        .insert({ post_id: post.id, user_id: userId.value });
-      // Увеличиваем счётчик
-      if (post.likes && post.likes[0]) {
-        post.likes[0].count += 1;
-      } else {
-        post.likes = [{ count: 1 }];
-      }
-      if (post.rating !== undefined) post.rating += 1;
-    }
-    post.isLiked = !post.isLiked;
-    updatePost(post);
-  } catch (e) {
-    console.error("Error toggling like:", e);
-  }
-}
-
-async function handleFavorite(post: any) {
-  if (!isAuthenticated.value || !userId.value) return;
-  try {
-    if (post.isFavorited) {
-      await supabase
-        .from("favorites")
-        .delete()
-        .eq("post_id", post.id)
-        .eq("user_id", userId.value);
-    } else {
-      await supabase
-        .from("favorites")
-        .insert({ post_id: post.id, user_id: userId.value });
-    }
-    post.isFavorited = !post.isFavorited;
-    updatePost(post);
-  } catch (e) {
-    console.error("Error toggling favorite:", e);
-  }
-}
-
-function debounce<T extends (...args: any[]) => any>(fn: T, delay: number) {
-  let timer: ReturnType<typeof setTimeout>;
-  return (...args: Parameters<T>) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), delay);
-  };
-}
-
-const searchQuery = ref("");
-const searchResults = ref<any[]>([]);
-
-const debouncedSearch = debounce(async (query: string) => {
+async function updateSearchSuggestions(query: string) {
   if (!query) {
     searchResults.value = [];
     return;
@@ -169,10 +115,192 @@ const debouncedSearch = debounce(async (query: string) => {
     })) || []),
     ...(posts?.map((p) => ({ type: "post", id: p.id, title: p.title })) || []),
   ];
+  showSearchResults.value = true;
+}
+
+function loadMoreSearch() {
+  if (searchQuery.value) {
+    performSearch(searchQuery.value, true);
+  }
+}
+
+async function performSearch(query: string, loadMore = false) {
+  if (!query) {
+    searchPosts.value = [];
+    searchTotal.value = 0;
+    searchHasMore.value = false;
+    return;
+  }
+
+  if (!loadMore) {
+    searchPage.value = 0;
+    searchPosts.value = [];
+  }
+
+  const from = searchPage.value * searchPerPage;
+  const to = from + searchPerPage - 1;
+
+  searchLoading.value = true;
+  try {
+    const { data, error, count } = await supabase
+      .from("post")
+      .select(
+        `
+        *,
+        post_images (*),
+        likes:like_to_post(count),
+        comments:comments(count)
+      `,
+        { count: "exact" },
+      )
+      .eq("moderation_status", "approved")
+      .or(`title.ilike.%${query}%,description.ilike.%${query}%`)
+      .order("rating", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+
+    const enriched = await enrichPostsWithUserData(data || []);
+    if (loadMore) {
+      searchPosts.value = [...searchPosts.value, ...enriched];
+    } else {
+      searchPosts.value = enriched;
+    }
+    searchTotal.value = count || 0;
+    searchHasMore.value = (searchPage.value + 1) * searchPerPage < (count || 0);
+    searchPage.value++;
+  } catch (e) {
+    console.error("Search error:", e);
+  } finally {
+    searchLoading.value = false;
+  }
+}
+// Функция загрузки следующей порции
+function loadMore() {
+  visibleCount.value += pageSize;
+}
+
+// Обновление поста (лайки, избранное)
+function updatePost(updatedPost: any) {
+  // обновляем в рекомендациях
+  const recIndex = recommendedPosts.value.findIndex(
+    (p) => p.id === updatedPost.id,
+  );
+  if (recIndex !== -1) {
+    recommendedPosts.value[recIndex] = { ...updatedPost };
+  }
+  // обновляем во всех категориях
+  for (const category of allCategories.value) {
+    const postIndex = category.posts.findIndex((p) => p.id === updatedPost.id);
+    if (postIndex !== -1) {
+      category.posts[postIndex] = { ...updatedPost };
+    }
+  }
+}
+
+// Обработка лайка (без изменений)
+async function handleLike(post: any) {
+  if (!isAuthenticated.value || !userId.value) return;
+  const wasLiked = post.isLiked;
+  // Optimistic update
+  post.isLiked = !wasLiked;
+  if (post.likes?.[0]) {
+    post.likes[0].count += wasLiked ? -1 : 1;
+  }
+  updatePost(post);
+
+  try {
+    if (wasLiked) {
+      await supabase
+        .from("like_to_post")
+        .delete()
+        .eq("post_id", post.id)
+        .eq("user_id", userId.value);
+    } else {
+      await supabase
+        .from("like_to_post")
+        .insert({ post_id: post.id, user_id: userId.value });
+    }
+  } catch (e) {
+    // Откат при ошибке
+    post.isLiked = wasLiked;
+    if (post.likes?.[0]) {
+      post.likes[0].count += wasLiked ? 1 : -1;
+    }
+    updatePost(post);
+    console.error("Error toggling like:", e);
+  }
+}
+
+// Обработка избранного (без изменений)
+async function handleFavorite(post: any) {
+  if (!isAuthenticated.value || !userId.value) return;
+  const wasFavorited = post.isFavorited;
+  // Optimistic update
+  post.isFavorited = !wasFavorited;
+  updatePost(post);
+
+  try {
+    if (wasFavorited) {
+      await supabase
+        .from("favorites")
+        .delete()
+        .eq("post_id", post.id)
+        .eq("user_id", userId.value);
+    } else {
+      await supabase
+        .from("favorites")
+        .insert({ post_id: post.id, user_id: userId.value });
+    }
+  } catch (e) {
+    // Откат
+    post.isFavorited = wasFavorited;
+    updatePost(post);
+    console.error("Error toggling favorite:", e);
+  }
+}
+
+function onResultClick() {
+  showSearchResults.value = false;
+}
+
+// Поиск (без изменений)
+const searchQuery = ref("");
+const searchResults = ref<any[]>([]);
+const debouncedSearch = debounce(async (query: string) => {
+  if (!query) {
+    searchResults.value = [];
+    showSearchResults.value = false;
+    searchPosts.value = []; // очищаем результаты постов
+    return;
+  }
+  await updateSearchSuggestions(query);
+  await performSearch(query, false); // запускаем полнотекстовый поиск
 }, 300);
 
 function handleSearch() {
   debouncedSearch(searchQuery.value);
+}
+
+watch(searchQuery, (newVal) => {
+  if (!newVal) {
+    searchPosts.value = [];
+    searchResults.value = [];
+  }
+});
+
+function debounce<T extends (...args: any[]) => any>(fn: T, delay: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const debounced = (...args: Parameters<T>) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+  debounced.cancel = () => {
+    if (timer) clearTimeout(timer);
+    timer = undefined;
+  };
+  return debounced;
 }
 
 onMounted(loadFeed);
@@ -180,62 +308,137 @@ onMounted(loadFeed);
 
 <template>
   <div class="container mx-auto px-4 py-6">
-    <div class="mb-6">
+    <!-- Поиск -->
+    <div class="mb-4 relative" ref="searchContainer">
       <input
         v-model="searchQuery"
         type="text"
         placeholder="Поиск по категориям и постам..."
-        class="w-full p-2 border rounded"
+        class="w-full p-2 pl-9 text-sm border border-primary/30 rounded-lg shadow-sm focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition"
         @input="handleSearch"
+        @keyup.enter="handleSearchInstant"
       />
-      <div v-if="searchResults.length" class="mt-2 bg-white shadow rounded p-2">
-        <div v-for="item in searchResults" :key="item.id">
+      <MagnifyingGlassIcon
+        class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-primary/50"
+      />
+      <div
+        v-if="showSearchResults && searchResults.length"
+        class="absolute z-10 mt-1 w-full bg-white shadow-lg border border-primary/20 rounded-lg p-2"
+      >
+        <div
+          v-for="item in searchResults"
+          :key="item.id"
+          @click="onResultClick"
+        >
           <NuxtLink
             :to="
               item.type === 'category'
                 ? `/categories/${item.slug}`
                 : `/post/${item.id}`
             "
-            class="block p-1 hover:bg-gray-100"
+            class="block p-2 hover:bg-gray-50 rounded text-gray-700"
           >
-            {{ item.title }} ({{
-              item.type === "category" ? "Категория" : "Пост"
-            }})
+            {{ item.title }}
+            <span class="text-xs text-primary"
+              >({{ item.type === "category" ? "Категория" : "Пост" }})</span
+            >
           </NuxtLink>
         </div>
       </div>
     </div>
 
-    <div v-if="loading" class="space-y-4">
-      <div v-for="i in 3" :key="i" class="animate-pulse">
-        <div class="h-8 w-48 bg-gray-200 rounded mb-3"></div>
-        <div class="flex gap-4 overflow-hidden">
-          <div
-            v-for="j in 4"
-            :key="j"
-            class="w-[max(250px,30vw)] sm:w-[300px] h-40 bg-gray-200 rounded"
-          ></div>
-        </div>
+    <div v-if="searchLoading" class="text-center py-4 text-gray-500">
+      Поиск...
+    </div>
+
+    <div v-else-if="searchQuery && searchPosts.length > 0" class="mt-6">
+      <h2 class="text-xl font-semibold mb-4">
+        Результаты поиска: "{{ searchQuery }}"
+      </h2>
+      <div
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+      >
+        <PostCard
+          v-for="post in searchPosts"
+          :key="post.id"
+          :post="post"
+          @like="handleLike"
+          @favorite="handleFavorite"
+        />
+      </div>
+      <!-- Кнопка загрузить ещё для поиска -->
+      <div v-if="searchHasMore" class="text-center my-8">
+        <button
+          @click="loadMoreSearch"
+          class="px-6 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 transition shadow-sm"
+        >
+          Загрузить ещё
+        </button>
       </div>
     </div>
+
+    <div
+      v-else-if="searchQuery && !searchLoading && searchPosts.length === 0"
+      class="text-center py-10 text-gray-500"
+    >
+      Ничего не найдено по запросу "{{ searchQuery }}"
+    </div>
+
     <div v-else>
-      <CategoryRow
-        v-if="recommendedPosts.length > 0"
-        :category="{ name: 'Рекомендации', slug: 'recommended' }"
-        :posts="recommendedPosts"
-        class="mb-8"
-        @like="handleLike"
-        @favorite="handleFavorite"
-      />
-      <CategoryRow
-        v-for="item in feed"
-        :key="item.category.id"
-        :category="item.category"
-        :posts="item.posts"
-        class="mb-8"
-        @like="handleLike"
-        @favorite="handleFavorite"
-      />
+      <!-- Скелетон загрузки -->
+      <div v-if="loading" class="space-y-6">
+        <div v-for="i in 3" :key="i" class="animate-pulse">
+          <div class="h-7 w-48 bg-gray-200 rounded mb-3"></div>
+          <div class="flex gap-4 overflow-hidden">
+            <div
+              v-for="j in 4"
+              :key="j"
+              class="w-[250px] h-36 bg-gray-200 rounded"
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      <div v-else>
+        <!-- Рекомендации -->
+        <CategoryRow
+          v-if="recommendedPosts.length > 0"
+          :category="{ name: 'Рекомендации', slug: 'recommended' }"
+          :posts="recommendedPosts"
+          class="mb-8"
+          @like="handleLike"
+          @favorite="handleFavorite"
+        />
+
+        <!-- Категории (только видимые) -->
+        <CategoryRow
+          v-for="item in visibleCategories"
+          :key="item.category.id"
+          :category="item.category"
+          :posts="item.posts"
+          class="mb-8"
+          @like="handleLike"
+          @favorite="handleFavorite"
+        />
+
+        <!-- Кнопка "Загрузить ещё" -->
+        <div v-if="hasMore" class="text-center my-8">
+          <button
+            @click="loadMore"
+            class="px-6 py-2 bg-secondary text-white rounded-lg hover:bg-secondary/80 transition shadow-sm"
+          >
+            Загрузить ещё
+          </button>
+        </div>
+
+        <!-- Сообщение о конце контента (появляется после загрузки всех категорий) -->
+        <div
+          v-if="!hasMore && allCategories.length > 0"
+          class="text-center my-8 text-gray-500"
+        >
+          Контента больше нет
+        </div>
+      </div>
     </div>
   </div>
 </template>

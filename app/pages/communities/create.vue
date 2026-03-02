@@ -1,153 +1,206 @@
+<template>
+  <div class="container mx-auto px-4 py-6 max-w-5xl">
+    <h1 class="text-3xl font-bold mb-6 text-gray-800">Создать сообщество</h1>
+
+    <form @submit.prevent="handleSubmit" class="space-y-6">
+      <!-- Название -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1"
+          >Название сообщества</label
+        >
+        <input
+          v-model="form.name"
+          type="text"
+          required
+          class="w-full px-4 py-2 bg-white border border-primary/20 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition"
+          placeholder="Введите название"
+        />
+      </div>
+
+      <!-- Описание и предпросмотр -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1"
+            >Описание (Markdown)</label
+          >
+          <textarea
+            v-model="form.description"
+            rows="8"
+            class="w-full px-4 py-2 bg-white border border-primary/20 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition resize-y font-mono text-sm"
+            placeholder="Расскажите о сообществе. Поддерживается Markdown"
+          ></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1"
+            >Предпросмотр</label
+          >
+          <div
+            class="prose prose-sm max-w-none p-4 bg-gray-50 border border-primary/20 rounded-lg overflow-auto h-[260px]"
+            v-html="renderedDescription"
+          ></div>
+        </div>
+      </div>
+
+      <!-- Аватар -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2"
+          >Аватар сообщества</label
+        >
+        <div class="flex items-center gap-4">
+          <button
+            type="button"
+            @click="triggerFileSelect"
+            class="px-4 py-2 border border-primary/30 rounded-lg text-primary hover:bg-primary/5 transition flex items-center gap-2"
+          >
+            <PhotoIcon class="w-5 h-5" />
+            {{ selectedFile ? "Заменить файл" : "Выбрать файл" }}
+          </button>
+          <span v-if="selectedFile" class="text-sm text-gray-500">{{
+            selectedFile.name
+          }}</span>
+        </div>
+        <input
+          ref="fileInput"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          class="hidden"
+          @change="onFileSelected"
+        />
+
+        <!-- Превью аватара -->
+        <div v-if="imagePreview" class="mt-3">
+          <img
+            :src="imagePreview"
+            class="w-24 h-24 object-cover rounded-full border border-primary/20"
+            alt="Превью аватара"
+          />
+          <button
+            type="button"
+            @click="removeImage"
+            class="mt-2 text-sm text-red-500 hover:text-red-600 transition"
+          >
+            Удалить
+          </button>
+        </div>
+      </div>
+
+      <!-- Кнопки -->
+      <div class="flex justify-end gap-3 pt-4 border-t border-primary/10">
+        <button
+          type="button"
+          @click="cancel"
+          class="px-5 py-2 border border-primary/30 rounded-lg text-primary hover:bg-primary/5 transition"
+        >
+          Отмена
+        </button>
+        <button
+          type="submit"
+          :disabled="submitting || !form.name"
+          class="px-5 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {{ submitting ? "Создание..." : "Создать сообщество" }}
+        </button>
+      </div>
+    </form>
+  </div>
+</template>
+
 <script setup lang="ts">
-const supabase = useSupabaseClient();
-const { userId } = useAuth();
+import { ref, computed, onUnmounted } from "vue";
+import { PhotoIcon } from "@heroicons/vue/24/outline";
+import MarkdownIt from "markdown-it";
+import type { Database } from "~/types/supabase";
+
+const supabase = useSupabaseClient<Database>();
+const { userId, isAuthenticated } = useAuth();
 const { uploadFile, getPublicUrl } = useStorage();
-const router = useRouter();
+const { createCommunity } = useCommunity();
 
-const form = ref({ name: "", description: "" });
-const avatarFile = ref<File | null>(null);
-const avatarPreview = ref<string | null>(null);
-const submitting = ref(false);
-const canCreate = ref(true);
+const md = new MarkdownIt();
 
-// Проверка лимита сообществ
-const checkLimit = async () => {
-  if (!userId.value) return false;
-  const { count } = await supabase
-    .from("community")
-    .select("*", { count: "exact", head: true })
-    .eq("owner_id", userId.value);
-  return (count || 0) < 5;
-};
-
-onMounted(async () => {
-  canCreate.value = await checkLimit();
-  if (!canCreate.value) {
-    alert("Вы можете создать не более 5 сообществ");
-  }
+const form = ref({
+  name: "",
+  description: "",
 });
 
-function handleAvatarChange(event: Event) {
+const renderedDescription = computed(() =>
+  md.render(form.value.description || ""),
+);
+
+// Загрузка аватара
+const selectedFile = ref<File | null>(null);
+const imagePreview = ref<string | null>(null);
+const fileInput = ref<HTMLInputElement | null>(null);
+const submitting = ref(false);
+
+function triggerFileSelect() {
+  fileInput.value?.click();
+}
+
+function onFileSelected(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
-  avatarFile.value = file;
-  avatarPreview.value = URL.createObjectURL(file);
+  selectedFile.value = file;
+  // Создаём превью
+  if (imagePreview.value) URL.revokeObjectURL(imagePreview.value);
+  imagePreview.value = URL.createObjectURL(file);
+  (event.target as HTMLInputElement).value = "";
+}
+
+function removeImage() {
+  if (imagePreview.value) {
+    URL.revokeObjectURL(imagePreview.value);
+    imagePreview.value = null;
+  }
+  selectedFile.value = null;
 }
 
 async function handleSubmit() {
-  if (!userId.value) {
+  if (!isAuthenticated.value || !userId.value) {
     alert("Необходимо авторизоваться");
-    return;
-  }
-  if (!(await checkLimit())) {
-    alert("Вы достигли лимита на создание сообществ (максимум 5)");
     return;
   }
 
   submitting.value = true;
-  try {
-    // Создаём сообщество
-    const { data: newComm, error } = await supabase
-      .from("community")
-      .insert({
-        name: form.value.name,
-        description: form.value.description,
-        owner_id: userId.value,
-        rating: 0,
-        patent: false,
-      })
-      .select()
-      .single();
-    if (error) throw error;
 
-    // Загружаем аватар, если выбран
-    if (avatarFile.value) {
+  try {
+    // Подготавливаем данные сообщества
+    const communityData: any = {
+      name: form.value.name,
+      description: form.value.description,
+      owner_id: userId.value,
+    };
+
+    // Если выбран аватар, загружаем его
+    if (selectedFile.value) {
       const uploadResult = await uploadFile(
-        "community-avatars",
-        avatarFile.value,
-        newComm.id.toString(),
-        { upsert: true, optimize: true },
+        "avatars", // или отдельный бакет для сообществ, но пока используем общий
+        selectedFile.value,
+        `community-${Date.now()}`,
+        { upsert: false, optimize: true },
       );
-      const publicUrl = getPublicUrl("community-avatars", uploadResult.path);
-      await supabase
-        .from("community")
-        .update({ avatar: publicUrl })
-        .eq("id", newComm.id);
-      newComm.avatar = publicUrl;
+      const publicUrl = getPublicUrl("avatars", uploadResult.path);
+      communityData.avatar = publicUrl;
     }
 
-    // Добавляем создателя как админа
-    const { error: subError } = await supabase.from("subscribers").insert({
-      communities_id: newComm.id,
-      user_id: userId.value,
-      role: "admin",
-    });
-    if (subError) throw subError;
+    // Создаём сообщество через composable
+    const newCommunity = await createCommunity(communityData);
 
-    await navigateTo(`/communities/${newComm.id}`);
-  } catch (e) {
-    console.error(e);
-    alert("Ошибка при создании сообщества: " + (e as any).message);
+    // Переходим на страницу созданного сообщества
+    await navigateTo(`/communities/${newCommunity.id}`);
+  } catch (err: any) {
+    console.error("Ошибка создания сообщества:", err);
+    alert("Ошибка при создании сообщества: " + err.message);
   } finally {
     submitting.value = false;
   }
 }
 
 function cancel() {
-  router.back();
+  navigateTo("/communities");
 }
-</script>
 
-<template>
-  <div class="container mx-auto px-4 py-6 max-w-2xl">
-    <h1 class="text-3xl font-bold mb-6">Создать сообщество</h1>
-    <form @submit.prevent="handleSubmit">
-      <div class="mb-4">
-        <label class="block text-sm font-medium mb-1">Название</label>
-        <input
-          v-model="form.name"
-          type="text"
-          required
-          class="w-full border rounded p-2"
-        />
-      </div>
-      <div class="mb-4">
-        <label class="block text-sm font-medium mb-1">Описание</label>
-        <textarea
-          v-model="form.description"
-          rows="4"
-          required
-          class="w-full border rounded p-2"
-        ></textarea>
-      </div>
-      <div class="mb-4">
-        <label class="block text-sm font-medium mb-1">Аватар сообщества</label>
-        <input
-          type="file"
-          accept="image/*"
-          class="w-full border rounded p-2"
-          @change="handleAvatarChange"
-        />
-        <div v-if="avatarPreview" class="mt-2">
-          <img :src="avatarPreview" class="h-20 w-20 object-cover rounded" />
-        </div>
-      </div>
-      <div class="flex justify-end gap-2">
-        <button
-          type="button"
-          class="px-4 py-2 text-gray-600 hover:text-gray-800"
-          @click="cancel"
-        >
-          Отмена
-        </button>
-        <button
-          type="submit"
-          :disabled="submitting || !canCreate"
-          class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-        >
-          {{ submitting ? "Создание..." : "Создать" }}
-        </button>
-      </div>
-    </form>
-  </div>
-</template>
+onUnmounted(() => {
+  if (imagePreview.value) URL.revokeObjectURL(imagePreview.value);
+});
+</script>

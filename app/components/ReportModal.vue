@@ -6,7 +6,7 @@ import { useAuth } from "~/composables/useAuth";
 
 const props = defineProps<{
   isOpen: boolean;
-  targetType: "post" | "comment" | "user";
+  targetType: "post" | "comment" | "user" | "community";
   targetId: number;
 }>();
 
@@ -27,6 +27,8 @@ const targetTypeRu = computed(() => {
       return "комментарий";
     case "user":
       return "пользователя";
+    case "community":
+      return "сообщество";
     default:
       return ""; // или любое значение по умолчанию
   }

@@ -7,6 +7,8 @@ import {
   ArrowRightStartOnRectangleIcon,
   PencilIcon,
   FlagIcon,
+  Squares2X2Icon,
+  CheckBadgeIcon,
 } from "@heroicons/vue/24/outline";
 const { signOut } = useAuth();
 const handleLogout = async () => {
@@ -78,7 +80,35 @@ const data = defineProps<DropDown_Props>();
         </NuxtLink>
 
         <!-- Модерация (только admin) -->
-        <!-- Модерация (для модератора и админа) -->
+        <NuxtLink
+          v-if="role === 'admin' || role === 'moderator'"
+          to="/moderate"
+          class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100"
+          role="menuitem"
+          tabindex="-1"
+        >
+          <Squares2X2Icon class="w-5 h-5 mr-3 text-gray-400" />
+          Панель модерации
+        </NuxtLink>
+        <NuxtLink
+          v-if="role === 'admin' || role === 'moderator'"
+          to="/moderate/community-requests"
+          class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100"
+          role="menuitem"
+        >
+          <CheckBadgeIcon class="w-5 h-5 mr-3 text-gray-400" />
+          Заявки сообществ
+        </NuxtLink>
+        <NuxtLink
+          v-if="role === 'admin' || role === 'moderator'"
+          to="/moderate/community-name-requests"
+          class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100"
+          role="menuitem"
+        >
+          <PencilIcon class="w-5 h-5 mr-3 text-gray-400" />
+          Запросы названий
+        </NuxtLink>
+
         <template v-if="role === 'admin' || role === 'moderator'">
           <NuxtLink
             to="/moderate/posts"
@@ -103,7 +133,7 @@ const data = defineProps<DropDown_Props>();
         <!-- Создать модератора (только admin) -->
         <NuxtLink
           v-if="role === 'admin'"
-          to="/register"
+          to="/moderate/create-moderator"
           class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100"
           role="menuitem"
           tabindex="-1"

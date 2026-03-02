@@ -1,10 +1,18 @@
 import type { Database } from "~/types/supabase";
 
+type Category = Database["public"]["Tables"]["category"]["Row"];
+type Post = Database["public"]["Tables"]["post"]["Row"] & {
+  post_images?: Database["public"]["Tables"]["post_images"]["Row"][];
+  likes?: { count: number }[];
+  comments?: { count: number }[];
+  categories?: { category: Category }[];
+};
+type FeedItem = { category: Category; posts: Post[] };
+
 export const usePosts = () => {
   const supabase = useSupabaseClient<Database>();
 
   const getHomeFeed = async (limit: number = 12) => {
-    // Получаем все категории
     const { data: categories } = await supabase
       .from("category")
       .select("id, name, slug, created_at");
@@ -22,7 +30,7 @@ export const usePosts = () => {
           return { category, posts: [] };
         }
 
-        const postIds = postIdsData.map((p) => p.post_id);
+        const postIds = postIdsData.map(p => p.post_id);
 
         const { data: posts } = await supabase
           .from("post")
@@ -31,13 +39,14 @@ export const usePosts = () => {
             *,
             post_images (*),
             likes:like_to_post(count),
-            comments:comments(count)
+            comments:comments(count),
+            categories:post_categories(category:category_id(id, name, slug))
           `,
           )
           .in("id", postIds)
           .eq("moderation_status", "approved")
-          .order("rating", { ascending: false }) // сначала популярные
-          .order("created_at", { ascending: false }) // потом новые
+          .order("rating", { ascending: false })
+          .order("created_at", { ascending: false })
           .limit(limit);
 
         return {
@@ -47,7 +56,7 @@ export const usePosts = () => {
       }),
     );
 
-    return feed.filter((item) => item.posts.length > 0);
+    return feed.filter(item => item.posts.length > 0);
   };
 
   const getRecommendedPosts = async (limit: number = 10) => {
@@ -58,7 +67,8 @@ export const usePosts = () => {
         *,
         post_images (*),
         likes:like_to_post(count),
-        comments:comments(count)
+        comments:comments(count),
+        categories:post_categories(category:category_id(id, name, slug))
       `,
       )
       .eq("moderation_status", "approved")
@@ -83,7 +93,7 @@ export const usePosts = () => {
       return [];
     }
 
-    const postIds = postIdsData.map((p) => p.post_id);
+    const postIds = postIdsData.map(p => p.post_id);
 
     const { data } = await supabase
       .from("post")
@@ -92,7 +102,8 @@ export const usePosts = () => {
         *,
         post_images (*),
         likes:like_to_post(count),
-        comments:comments(count)
+        comments:comments(count),
+        categories:post_categories(category:category_id(id, name, slug))
       `,
       )
       .in("id", postIds)

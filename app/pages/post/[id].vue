@@ -1,16 +1,209 @@
-<script setup lang="ts">
-import { HeartIcon, BookmarkIcon, FlagIcon } from "@heroicons/vue/24/outline";
-import type { Database } from "~/types/supabase";
-type PostImage = Database["public"]["Tables"]["post_images"]["Row"];
+<template>
+  <div class="container mx-auto px-4 py-6 max-w-4xl">
+    <div v-if="loading" class="text-center py-10">Загрузка...</div>
+    <div v-else-if="!post" class="text-center py-10 text-gray-500">
+      Пост не найден
+    </div>
+    <div v-else>
+      <!-- Шапка поста -->
+      <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">{{ post.title }}</h1>
 
-const postImages = computed(
-  () => post.value?.post_images?.map((img: PostImage) => img.url) || [],
-);
+        <!-- Мета-информация: автор, дата, действия -->
+        <div class="flex flex-wrap items-center justify-between gap-4 text-sm">
+          <div class="flex items-center gap-3 text-gray-600">
+            <NuxtLink
+              :to="`/profile/${post.author?.auth_uid}`"
+              class="flex items-center gap-2 hover:text-accent transition"
+            >
+              <img
+                :src="post.author?.avatar || '/default-avatar.png'"
+                class="w-6 h-6 rounded-full object-cover"
+                alt=""
+              />
+              <span class="font-medium">{{ post.author?.use || "Автор" }}</span>
+            </NuxtLink>
+            <span>•</span>
+            <span>{{ formatDate(post.created_at) }}</span>
+          </div>
+
+          <!-- Кнопки действий (только если пост одобрен) -->
+          <div v-if="isPostActive" class="flex items-center gap-4">
+            <button
+              @click="toggleLike"
+              :disabled="!isAuthenticated"
+              class="flex items-center gap-1 text-gray-600 hover:text-red-500 transition"
+            >
+              <HeartIcon
+                :class="[isLiked ? 'text-red-500 fill-red-500' : '']"
+                class="w-5 h-5"
+              />
+              <span>{{ post.rating }}</span>
+            </button>
+            <button
+              @click="toggleFavoritePost"
+              :disabled="!isAuthenticated"
+              class="flex items-center gap-1 text-gray-600 hover:text-yellow-500 transition"
+            >
+              <BookmarkIcon
+                :class="[isFavorited ? 'text-yellow-500 fill-yellow-500' : '']"
+                class="w-5 h-5"
+              />
+            </button>
+            <button
+              @click="openReportModal('post', post.id)"
+              :disabled="!isAuthenticated || hasReportedPost"
+              class="flex items-center gap-1 text-gray-600 hover:text-primary disabled:opacity-50"
+              :title="
+                hasReportedPost ? 'Вы уже отправили жалобу' : 'Пожаловаться'
+              "
+            >
+              <FlagIcon
+                :class="[hasReportedPost ? 'text-primary fill-primary' : '']"
+                class="w-5 h-5"
+              />
+            </button>
+          </div>
+
+          <!-- Баннер для неодобренных постов -->
+          <div v-else class="text-sm text-orange-600">
+            {{
+              post.moderation_status === "pending"
+                ? "Пост на проверке. Взаимодействие недоступно."
+                : "Пост отклонён модератором."
+            }}
+          </div>
+        </div>
+
+        <!-- Категории -->
+        <div v-if="postCategories.length" class="flex flex-wrap gap-2 mt-4">
+          <NuxtLink
+            v-for="cat in postCategories"
+            :key="cat.id"
+            :to="`/categories/${cat.slug}`"
+            class="px-3 py-1 bg-accent/20 text-accent-dark rounded-full text-sm hover:bg-accent/30 transition"
+          >
+            {{ cat.name }}
+          </NuxtLink>
+        </div>
+      </div>
+
+      <!-- Галерея изображений -->
+      <div v-if="post.post_images?.length" class="mb-8">
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          <div
+            v-for="(img, index) in post.post_images"
+            :key="index"
+            class="aspect-square bg-primary/5 rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition"
+            @click="openImageViewer(postImages, index as number)"
+          >
+            <img :src="img.url" class="w-full h-full object-cover" alt="" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Описание поста -->
+      <div
+        class="prose prose-lg max-w-none mb-8"
+        v-html="renderedDescription"
+      ></div>
+
+      <!-- Комментарии -->
+      <div class="border-t border-primary/10 pt-6" id="comments">
+        <h2 class="text-2xl font-semibold mb-4 flex items-center gap-2">
+          <ChatBubbleLeftIcon class="w-6 h-6 text-primary" />
+          Комментарии ({{ totalComments }})
+        </h2>
+
+        <!-- Форма комментария (только если пост одобрен) -->
+        <CommentForm
+          v-if="isAuthenticated && isPostActive"
+          :post-id="post.id"
+          :parent-id="replyToCommentId"
+          :reply-to="replyToUsername"
+          @comment-added="handleNewComment"
+          @cancel="cancelReply"
+          class="mb-6"
+        />
+        <div
+          v-else-if="!isAuthenticated && isPostActive"
+          class="mb-6 text-center text-gray-500"
+        >
+          <NuxtLink to="/auth/login" class="text-accent hover:underline"
+            >Войдите</NuxtLink
+          >, чтобы оставить комментарий.
+        </div>
+
+        <!-- Список комментариев (отображаются всегда, но без интерактива, если пост не одобрен) -->
+        <div
+          v-if="commentTree.length === 0"
+          class="text-gray-500 text-center py-4"
+        >
+          Пока нет комментариев. Будьте первым!
+        </div>
+        <div v-else class="space-y-4">
+          <CommentItem
+            v-for="comment in commentTree"
+            :key="comment.id"
+            :comment="comment"
+            :is-authenticated="isAuthenticated"
+            :interactive="isPostActive"
+            @like="toggleCommentLike"
+            @reply="startReply"
+            @report="reportComment"
+            @open-image="openImageViewer"
+          />
+        </div>
+
+        <!-- Кнопка загрузить ещё комментарии -->
+        <div v-if="hasMoreComments" class="text-center mt-4">
+          <button @click="loadMoreComments" class="text-accent hover:underline">
+            Загрузить ещё комментарии
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Модальные окна -->
+    <ReportModal
+      v-if="reportModalTarget"
+      :is-open="true"
+      :target-type="reportModalTarget.type"
+      :target-id="reportModalTarget.id"
+      @close="reportModalTarget = null"
+      @submitted="handleReportSubmitted"
+    />
+
+    <ImageViewer
+      v-if="showViewer"
+      :images="viewerImages"
+      :initial-index="viewerIndex"
+      @close="showViewer = false"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
+import {
+  HeartIcon,
+  BookmarkIcon,
+  FlagIcon,
+  ChatBubbleLeftIcon,
+} from "@heroicons/vue/24/outline";
+import type { Database } from "~/types/supabase";
+import MarkdownIt from "markdown-it";
+import CommentForm from "~/components/CommentForm.vue";
+import CommentItem from "~/components/CommentItem.vue";
+import ImageViewer from "~/components/ImageViewer.vue";
+import ReportModal from "~/components/ReportModal.vue";
 
 const supabase = useSupabaseClient<Database>();
 const route = useRoute();
 const { isAuthenticated, userId } = useAuth();
 const { toggleFavorite, isFavorite } = useFavorites();
+
+const md = new MarkdownIt();
 
 const loading = ref(true);
 const post = ref<any>(null);
@@ -20,33 +213,34 @@ const isLiked = ref(false);
 const isFavorited = ref(false);
 const replyToCommentId = ref<number | null>(null);
 const replyToUsername = ref<string | null>(null);
-const hasReportedPost = ref(false); // для блокировки повторной жалобы на пост
+const hasReportedPost = ref(false);
+const postCategories = ref<any[]>([]);
 
-// Жалоба
 const reportModalTarget = ref<{
   type: "post" | "comment" | "user";
   id: number;
 } | null>(null);
-
-// Просмотр изображений
 const viewerImages = ref<string[]>([]);
 const viewerIndex = ref(0);
 const showViewer = ref(false);
 
-function openImageViewer(images: string[], index: number) {
-  viewerImages.value = images;
-  viewerIndex.value = index;
-  showViewer.value = true;
-}
+const postImages = computed(
+  () => post.value?.post_images?.map((img: any) => img.url) || [],
+);
+const renderedDescription = computed(() =>
+  md.render(post.value?.description || ""),
+);
 
-// Пагинация
+const isPostActive = computed(
+  () => post.value?.moderation_status === "approved",
+);
+
 const commentsLimit = 20;
 const commentsOffset = ref(0);
 const hasMoreComments = ref(true);
-
-// Дерево комментариев
 const commentTree = ref<any[]>([]);
 
+// Построение дерева комментариев с сортировкой по лайкам и дате
 function buildCommentTree() {
   const map = new Map();
   comments.value.forEach((c) => {
@@ -56,21 +250,15 @@ function buildCommentTree() {
   comments.value.forEach((c) => {
     const node = map.get(c.id);
     if (c.parent_id && map.has(c.parent_id)) {
-      const parent = map.get(c.parent_id);
-      parent.children.push(node);
+      map.get(c.parent_id).children.push(node);
     } else if (!c.parent_id) {
       roots.push(node);
     }
   });
-
-  // Функция сортировки: сначала по лайкам (убывание), потом по дате (убывание)
   const sortFn = (a: any, b: any) => {
-    if (a.likes_count !== b.likes_count) {
-      return b.likes_count - a.likes_count;
-    }
+    if (a.likes_count !== b.likes_count) return b.likes_count - a.likes_count;
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   };
-
   roots.sort(sortFn);
   roots.forEach((r) => r.children.sort(sortFn));
   commentTree.value = roots;
@@ -79,23 +267,31 @@ function buildCommentTree() {
 // Загрузка поста
 const loadPost = async () => {
   const id = route.params.id;
-  const idStr = !id ? null : Array.isArray(id) ? id[0] : id;
-  const numericId = idStr ? parseInt(idStr, 10) : -1;
+  const numericId = typeof id === "string" ? parseInt(id, 10) : -1;
+  if (isNaN(numericId)) return;
 
-  // Загружаем пост
+  // Пост + автор + изображения + лайки
   const { data: postData, error: postError } = await supabase
     .from("post")
     .select(
-      `*, author:user!author_id(*), post_images (*), likes:like_to_post(count)`,
+      "*, author:user!author_id(*), post_images (*), likes:like_to_post(count)",
     )
     .eq("id", numericId)
     .single();
   if (postError) throw postError;
-
   post.value = postData;
   post.value.rating = postData.likes?.[0]?.count || 0;
 
-  // Проверка, отправлял ли пользователь жалобу на этот пост
+  // Категории поста
+  const { data: categoriesData } = await supabase
+    .from("post_categories")
+    .select("category_id, category:category_id(id, name, slug)")
+    .eq("post_id", numericId);
+  if (categoriesData) {
+    postCategories.value = categoriesData.map((item) => item.category);
+  }
+
+  // Проверка жалобы на пост
   if (isAuthenticated.value && userId.value) {
     const { data: report } = await supabase
       .from("reports")
@@ -107,18 +303,18 @@ const loadPost = async () => {
     hasReportedPost.value = !!report;
   }
 
-  // Получаем общее количество комментариев
+  // Общее количество комментариев
   const { count } = await supabase
     .from("comments")
     .select("*", { count: "exact", head: true })
     .eq("post_id", numericId);
   totalComments.value = count || 0;
 
-  // Загружаем первые комментарии
+  // Загрузка комментариев
   await loadComments(numericId, 0);
 
-  // Проверка лайка поста и закладки
-  if (isAuthenticated.value && userId.value) {
+  // Проверка лайка и избранного (только если пост одобрен)
+  if (isAuthenticated.value && userId.value && isPostActive.value) {
     const { data: likeData } = await supabase
       .from("like_to_post")
       .select("user_id")
@@ -126,25 +322,21 @@ const loadPost = async () => {
       .eq("user_id", userId.value)
       .maybeSingle();
     isLiked.value = !!likeData;
-
     isFavorited.value = await isFavorite(numericId);
+  } else {
+    isLiked.value = false;
+    isFavorited.value = false;
   }
 };
 
-// Загрузка комментариев с пагинацией и проверкой жалоб
+// Загрузка комментариев с пагинацией
 const loadComments = async (postId: number, offset: number) => {
   const { data, error } = await supabase
     .from("comments")
     .select(
       `
       *,
-      user:user_id(
-        id,
-        username,
-        use,
-        avatar,
-        communities:subscribers(community:communities_id(id, name, patent))
-      ),
+      user:user_id(id, username, use, avatar, auth_uid, communities:subscribers(community:communities_id(id, name, patent, rating))),
       images:comment_images(*)
     `,
     )
@@ -157,7 +349,8 @@ const loadComments = async (postId: number, offset: number) => {
   if (data) {
     let likedSet = new Set<number>();
     let reportedSet = new Set<number>();
-    if (isAuthenticated.value && userId.value) {
+    // Если пост активен и пользователь авторизован, подгружаем его лайки/репорты на комментарии
+    if (isAuthenticated.value && userId.value && isPostActive.value) {
       const commentIds = data.map((c) => c.id);
       if (commentIds.length) {
         const { data: likes } = await supabase
@@ -166,7 +359,6 @@ const loadComments = async (postId: number, offset: number) => {
           .eq("user_id", userId.value)
           .in("comment_id", commentIds);
         likedSet = new Set(likes?.map((l) => l.comment_id) || []);
-
         const { data: reports } = await supabase
           .from("reports")
           .select("target_id")
@@ -179,7 +371,7 @@ const loadComments = async (postId: number, offset: number) => {
 
     const enriched = data.map((c) => ({
       ...c,
-      likes_count: c.likes_count || 0, // используем поле из таблицы
+      likes_count: c.likes_count || 0,
       liked: likedSet.has(c.id),
       reported: reportedSet.has(c.id),
       images: c.images || [],
@@ -192,97 +384,12 @@ const loadComments = async (postId: number, offset: number) => {
   }
 };
 
-function sortComments(commentsArray: any[]) {
-  return commentsArray.sort((a, b) => {
-    if (a.likes_count !== b.likes_count) {
-      return b.likes_count - a.likes_count;
-    }
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
-}
-
 const loadMoreComments = () => {
-  if (post.value) {
-    loadComments(post.value.id, commentsOffset.value);
-  }
+  if (post.value) loadComments(post.value.id, commentsOffset.value);
 };
 
 // Real-time подписка на новые комментарии
 let subscription: any;
-onMounted(() => {
-  const id = route.params.id;
-  const idStr = !id ? null : Array.isArray(id) ? id[0] : id;
-  const numericId = idStr ? parseInt(idStr, 10) : -1;
-  if (isNaN(numericId) || numericId <= 0) {
-    console.error("Invalid post ID for realtime subscription");
-    return;
-  }
-
-  subscription = supabase
-    .channel("comments-channel")
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "comments",
-        filter: `post_id=eq.${numericId}`,
-      },
-      async (payload) => {
-        const { data: newComment } = await supabase
-          .from("comments")
-          .select(
-            `
-            *,
-            user:user_id(*),
-            likes:like_to_comment(count),
-            images:comment_images(*)
-          `,
-          )
-          .eq("id", payload.new.id)
-          .single();
-        if (newComment) {
-          let liked = false;
-          let reported = false;
-          if (isAuthenticated.value && userId.value) {
-            const { data: like } = await supabase
-              .from("like_to_comment")
-              .select("comment_id")
-              .eq("comment_id", newComment.id)
-              .eq("user_id", userId.value)
-              .maybeSingle();
-            liked = !!like;
-            const { data: report } = await supabase
-              .from("reports")
-              .select("id")
-              .eq("target_type", "comment")
-              .eq("target_id", newComment.id)
-              .eq("reporter_id", userId.value)
-              .maybeSingle();
-            reported = !!report;
-          }
-          const enriched = {
-            ...newComment,
-            likes_count: newComment.likes?.[0]?.count || 0,
-            liked,
-            reported,
-            images: newComment.images || [],
-          };
-          comments.value.push(enriched);
-          sortComments(comments.value);
-          totalComments.value++;
-          buildCommentTree();
-        }
-      },
-    )
-    .subscribe();
-});
-
-onUnmounted(() => {
-  if (subscription) subscription.unsubscribe();
-});
-
-// Инициализация
 onMounted(async () => {
   try {
     await loadPost();
@@ -291,9 +398,68 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+
+  const numericId = parseInt(route.params.id as string, 10);
+  if (!isNaN(numericId)) {
+    subscription = supabase
+      .channel("comments-channel")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "comments",
+          filter: `post_id=eq.${numericId}`,
+        },
+        async (payload) => {
+          const { data: newComment } = await supabase
+            .from("comments")
+            .select(
+              "*, user:user_id(*), likes:like_to_comment(count), images:comment_images(*)",
+            )
+            .eq("id", payload.new.id)
+            .single();
+          if (newComment) {
+            let liked = false;
+            let reported = false;
+            if (isAuthenticated.value && userId.value && isPostActive.value) {
+              const { data: like } = await supabase
+                .from("like_to_comment")
+                .select("comment_id")
+                .eq("comment_id", newComment.id)
+                .eq("user_id", userId.value)
+                .maybeSingle();
+              liked = !!like;
+              const { data: report } = await supabase
+                .from("reports")
+                .select("id")
+                .eq("target_type", "comment")
+                .eq("target_id", newComment.id)
+                .eq("reporter_id", userId.value)
+                .maybeSingle();
+              reported = !!report;
+            }
+            const enriched = {
+              ...newComment,
+              likes_count: newComment.likes?.[0]?.count || 0,
+              liked,
+              reported,
+              images: newComment.images || [],
+            };
+            comments.value.push(enriched);
+            totalComments.value++;
+            buildCommentTree();
+          }
+        },
+      )
+      .subscribe();
+  }
 });
 
-// Обработка нового комментария из формы
+onUnmounted(() => {
+  if (subscription) subscription.unsubscribe();
+});
+
 function handleNewComment(comment: any) {
   comments.value.push(comment);
   totalComments.value++;
@@ -302,84 +468,84 @@ function handleNewComment(comment: any) {
   replyToUsername.value = null;
 }
 
-// Лайк поста
 async function toggleLike() {
   if (!isAuthenticated.value || !userId.value || !post.value) return;
+  if (!isPostActive.value) return;
+  const uid = userId.value;
+  const wasLiked = isLiked.value;
+  isLiked.value = !wasLiked;
+  post.value.rating += wasLiked ? -1 : 1;
   try {
-    if (isLiked.value) {
+    if (wasLiked) {
       await supabase
         .from("like_to_post")
         .delete()
         .eq("post_id", post.value.id)
-        .eq("user_id", userId.value);
-      post.value.rating -= 1;
+        .eq("user_id", uid);
     } else {
       await supabase
         .from("like_to_post")
-        .insert({ post_id: post.value.id, user_id: userId.value });
-      post.value.rating += 1;
+        .insert({ post_id: post.value.id, user_id: uid });
     }
-    isLiked.value = !isLiked.value;
-    post.value = { ...post.value };
   } catch (e) {
-    console.error("Error toggling like:", e);
-    if (isLiked.value) {
-      post.value.rating += 1;
-    } else {
-      post.value.rating -= 1;
-    }
+    isLiked.value = wasLiked;
+    post.value.rating += wasLiked ? 1 : -1;
+    console.error(e);
   }
 }
 
-// Закладка
 async function toggleFavoritePost() {
-  if (!isAuthenticated.value || !post.value) return;
+  if (!isAuthenticated.value || !post.value || !userId.value) return;
+  if (!isPostActive.value) return;
+  const uid = userId.value;
+  const wasFavorited = isFavorited.value;
+  isFavorited.value = !wasFavorited;
   try {
-    const result = await toggleFavorite(post.value.id);
-    isFavorited.value = result;
+    if (wasFavorited) {
+      await supabase
+        .from("favorites")
+        .delete()
+        .eq("post_id", post.value.id)
+        .eq("user_id", uid);
+    } else {
+      await supabase
+        .from("favorites")
+        .insert({ post_id: post.value.id, user_id: uid });
+    }
   } catch (e) {
-    console.error("Error toggling favorite:", e);
+    isFavorited.value = wasFavorited;
+    console.error(e);
   }
 }
 
-// Лайк комментария
 async function toggleCommentLike(comment: any) {
   if (!isAuthenticated.value || !userId.value) return;
-
+  if (!isPostActive.value) return;
+  const uid = userId.value;
   const wasLiked = comment.liked;
-  const previousLikesCount = comment.likes_count;
-
+  comment.liked = !wasLiked;
+  comment.likes_count += wasLiked ? -1 : 1;
+  buildCommentTree();
   try {
     if (wasLiked) {
       await supabase
         .from("like_to_comment")
         .delete()
         .eq("comment_id", comment.id)
-        .eq("user_id", userId.value);
-      comment.likes_count -= 1;
-      comment.liked = false;
+        .eq("user_id", uid);
     } else {
       await supabase
         .from("like_to_comment")
-        .insert({ comment_id: comment.id, user_id: userId.value });
-      comment.likes_count += 1;
-      comment.liked = true;
+        .insert({ comment_id: comment.id, user_id: uid });
     }
-
-    const index = comments.value.findIndex((c) => c.id === comment.id);
-    if (index !== -1) {
-      comments.value[index] = { ...comment };
-      comments.value = [...comments.value];
-    }
-    buildCommentTree();
   } catch (e) {
-    console.error("Error toggling comment like:", e);
-    comment.likes_count = previousLikesCount;
     comment.liked = wasLiked;
+    comment.likes_count += wasLiked ? 1 : -1;
+    buildCommentTree();
+    console.error(e);
   }
 }
 
-// Начать ответ
 function startReply(comment: any) {
   replyToCommentId.value = comment.id;
   replyToUsername.value = comment.user?.use || "Пользователь";
@@ -390,26 +556,22 @@ function cancelReply() {
   replyToUsername.value = null;
 }
 
-// Открыть модалку жалобы
 function openReportModal(type: "post" | "comment" | "user", id: number) {
   reportModalTarget.value = { type, id };
 }
 
-// Жалоба на комментарий (вызывается из CommentItem)
 function reportComment(comment: any) {
   openReportModal("comment", comment.id);
 }
 
-// После отправки жалобы обновляем состояние
 function handleReportSubmitted() {
   if (!reportModalTarget.value) return;
   const { type, id } = reportModalTarget.value;
   if (type === "post") {
     hasReportedPost.value = true;
   } else if (type === "comment") {
-    // Найти комментарий в дереве и отметить reported = true
     const markReported = (list: any[]) => {
-      for (const c of list) {
+      for (let c of list) {
         if (c.id === id) {
           c.reported = true;
           return true;
@@ -419,9 +581,15 @@ function handleReportSubmitted() {
       return false;
     };
     markReported(commentTree.value);
-    commentTree.value = [...commentTree.value]; // триггер реактивности
+    commentTree.value = [...commentTree.value];
   }
   reportModalTarget.value = null;
+}
+
+function openImageViewer(images: string[], index: number) {
+  viewerImages.value = images;
+  viewerIndex.value = index;
+  showViewer.value = true;
 }
 
 function formatDate(date: string) {
@@ -434,160 +602,3 @@ function formatDate(date: string) {
   });
 }
 </script>
-
-<template>
-  <div class="container mx-auto px-4 py-6 max-w-4xl">
-    <!-- Загрузка -->
-    <div v-if="loading" class="text-center py-10">Загрузка...</div>
-    <div v-else-if="!post" class="text-center py-10">Пост не найден</div>
-    <div v-else>
-      <!-- Пост -->
-      <h1 class="text-3xl font-bold mb-2">{{ post.title }}</h1>
-      <div class="flex items-center justify-between mb-4 text-sm text-gray-500">
-        <div class="flex items-center gap-2">
-          <span>Автор: {{ post.author?.use || "Неизвестно" }}</span>
-          <span>•</span>
-          <span>{{ formatDate(post.created_at) }}</span>
-        </div>
-        <div class="flex items-center gap-4">
-          <button
-            :disabled="!isAuthenticated"
-            class="flex items-center gap-1 hover:text-blue-600"
-            @click="toggleLike"
-          >
-            <HeartIcon
-              :class="[isLiked ? 'text-red-500 fill-red-500' : 'text-gray-400']"
-              class="w-5 h-5"
-            />
-            <span>{{ post.rating }}</span>
-          </button>
-          <button
-            :disabled="!isAuthenticated"
-            class="flex items-center gap-1 hover:text-yellow-500"
-            @click="toggleFavoritePost"
-          >
-            <BookmarkIcon
-              :class="[
-                isFavorited
-                  ? 'text-yellow-500 fill-yellow-500'
-                  : 'text-gray-400',
-              ]"
-              class="w-5 h-5"
-            />
-          </button>
-          <!-- Кнопка жалобы на пост -->
-          <button
-            :disabled="!isAuthenticated || hasReportedPost"
-            class="flex items-center gap-1 hover:text-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            :title="
-              hasReportedPost
-                ? 'Вы уже отправили жалобу'
-                : 'Пожаловаться на пост'
-            "
-            @click="openReportModal('post', post.id)"
-          >
-            <FlagIcon
-              :class="[
-                hasReportedPost ? 'text-red-500 fill-red-500' : 'text-gray-400',
-              ]"
-              class="w-5 h-5"
-            />
-          </button>
-        </div>
-      </div>
-
-      <!-- Галерея изображений поста -->
-      <div
-        v-if="post.post_images?.length"
-        class="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4"
-      >
-        <div
-          v-for="(img, index) in post.post_images"
-          :key="index"
-          class="cursor-pointer overflow-hidden rounded-lg"
-          @click="openImageViewer(postImages, index as number)"
-        >
-          <img
-            :src="img.url"
-            class="w-full h-40 object-cover hover:scale-105 transition"
-          />
-        </div>
-      </div>
-
-      <p class="text-gray-800 whitespace-pre-line mb-8">
-        {{ post.description }}
-      </p>
-
-      <!-- Комментарии -->
-      <div class="border-t pt-6">
-        <h2 class="text-2xl font-semibold mb-4">
-          Комментарии ({{ totalComments }})
-        </h2>
-
-        <!-- Форма комментария -->
-        <CommentForm
-          v-if="isAuthenticated"
-          :post-id="post.id"
-          :parent-id="replyToCommentId"
-          :reply-to="replyToUsername"
-          class="mb-6"
-          @comment-added="handleNewComment"
-          @cancel="cancelReply"
-        />
-        <div v-else class="mb-6 text-center text-gray-500">
-          <NuxtLink to="/auth/login" class="text-blue-600 hover:underline"
-            >Войдите</NuxtLink
-          >, чтобы оставить комментарий.
-        </div>
-
-        <!-- Дерево комментариев -->
-        <div
-          v-if="commentTree.length === 0"
-          class="text-gray-500 text-center py-4"
-        >
-          Пока нет комментариев.
-        </div>
-        <div v-else class="space-y-4">
-          <CommentItem
-            v-for="comment in commentTree"
-            :key="comment.id"
-            :comment="comment"
-            :is-authenticated="isAuthenticated"
-            @like="toggleCommentLike"
-            @reply="startReply"
-            @report="reportComment"
-            @open-image="openImageViewer"
-          />
-        </div>
-
-        <!-- Кнопка загрузить ещё -->
-        <div v-if="hasMoreComments" class="text-center mt-4">
-          <button
-            class="text-blue-600 hover:underline"
-            @click="loadMoreComments"
-          >
-            Загрузить ещё
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Модальное окно жалобы -->
-    <ReportModal
-      v-if="reportModalTarget"
-      :is-open="true"
-      :target-type="reportModalTarget.type"
-      :target-id="reportModalTarget.id"
-      @close="reportModalTarget = null"
-      @submitted="handleReportSubmitted"
-    />
-
-    <!-- Просмотрщик изображений -->
-    <ImageViewer
-      v-if="showViewer"
-      :images="viewerImages"
-      :initial-index="viewerIndex"
-      @close="showViewer = false"
-    />
-  </div>
-</template>

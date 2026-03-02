@@ -1,61 +1,153 @@
-<script setup lang="ts">
-const supabase = useSupabaseClient();
-const communities = ref<any[]>([]);
-const loading = ref(true);
-
-onMounted(async () => {
-  const { data, error } = await supabase
-    .from("community")
-    .select("*")
-    .order("rating", { ascending: false });
-  if (error) console.error(error);
-  else communities.value = data || [];
-  loading.value = false;
-});
-</script>
-
 <template>
   <div class="container mx-auto px-4 py-6">
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold">Сообщества</h1>
+    <!-- Заголовок и кнопка создания -->
+    <div
+      class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6"
+    >
+      <h1 class="text-3xl font-bold text-gray-800">Сообщества</h1>
       <NuxtLink
         to="/communities/create"
-        class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        class="px-5 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition shadow-sm"
       >
         Создать сообщество
       </NuxtLink>
     </div>
 
-    <div v-if="loading" class="text-center">Загрузка...</div>
-    <div v-else-if="communities.length === 0" class="text-center text-gray-500">
-      Пока нет сообществ. Будьте первым!
+    <!-- Поиск -->
+    <div class="mb-6 max-w-md">
+      <div class="relative">
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Поиск сообществ..."
+          class="w-full px-4 py-2 pl-10 bg-white border border-primary/20 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition"
+        />
+        <MagnifyingGlassIcon
+          class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-primary/50"
+        />
+      </div>
     </div>
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <NuxtLink
-        v-for="c in communities"
-        :key="c.id"
-        :to="`/communities/${c.id}`"
-        class="block p-4 bg-white rounded shadow hover:shadow-md transition"
+
+    <!-- Вкладки -->
+    <div class="border-b border-primary/10 mb-6">
+      <button
+        v-for="tab in tabs"
+        :key="tab.value"
+        @click="activeTab = tab.value"
+        :class="[
+          'px-4 py-2 text-sm font-medium transition-colors relative',
+          activeTab === tab.value
+            ? 'text-accent border-b-2 border-accent'
+            : 'text-gray-600 hover:text-accent',
+        ]"
       >
-        <div class="flex items-center gap-3">
-          <img
-            :src="c.avatar || '/default-community.png'"
-            class="w-12 h-12 rounded-full object-cover"
-          />
-          <div>
-            <h2 class="font-semibold text-lg">{{ c.name }}</h2>
-            <p class="text-sm text-gray-500 line-clamp-1">
-              {{ c.description }}
-            </p>
-          </div>
+        {{ tab.label }}
+      </button>
+    </div>
+
+    <!-- Скелетон загрузки -->
+    <div
+      v-if="loading"
+      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+    >
+      <div
+        v-for="i in 6"
+        :key="i"
+        class="h-40 bg-gray-200 rounded animate-pulse"
+      ></div>
+    </div>
+
+    <!-- Контент -->
+    <div v-else>
+      <!-- Вкладка "Популярные" -->
+      <div v-if="activeTab === 'popular'">
+        <div
+          v-if="filteredPopular.length === 0"
+          class="text-center py-10 text-gray-500"
+        >
+          Популярные сообщества не найдены
         </div>
         <div
-          class="mt-2 flex items-center justify-between text-sm text-gray-400"
+          v-else
+          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
         >
-          <span>⭐ {{ c.rating }}</span>
-          <span v-if="c.patent" class="text-yellow-500">✓</span>
+          <CommunityCard
+            v-for="community in filteredPopular"
+            :key="community.id"
+            :community="community"
+          />
         </div>
-      </NuxtLink>
+      </div>
+
+      <!-- Вкладка "Все сообщества" -->
+      <div v-if="activeTab === 'all'">
+        <div
+          v-if="filteredAll.length === 0"
+          class="text-center py-10 text-gray-500"
+        >
+          Сообщества не найдены
+        </div>
+        <div
+          v-else
+          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+        >
+          <CommunityCard
+            v-for="community in filteredAll"
+            :key="community.id"
+            :community="community"
+          />
+        </div>
+      </div>
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted } from "vue";
+import { MagnifyingGlassIcon } from "@heroicons/vue/24/outline";
+import type { Database } from "~/types/supabase";
+
+const supabase = useSupabaseClient<Database>();
+
+const communities = ref<any[]>([]);
+const loading = ref(true);
+const searchQuery = ref("");
+const activeTab = ref<"popular" | "all">("popular");
+
+const tabs = [
+  { label: "Популярные", value: "popular" as const },
+  { label: "Все сообщества", value: "all" as const },
+];
+
+const TOP_COUNT = 5;
+
+const topCommunities = computed(() => communities.value.slice(0, TOP_COUNT));
+
+const filterByQuery = (items: any[]) => {
+  const query = searchQuery.value.toLowerCase();
+  if (!query) return items;
+  return items.filter(
+    (c) =>
+      c.name?.toLowerCase().includes(query) ||
+      c.description?.toLowerCase().includes(query),
+  );
+};
+
+const filteredPopular = computed(() => filterByQuery(topCommunities.value));
+const filteredAll = computed(() => filterByQuery(communities.value));
+
+onMounted(async () => {
+  try {
+    const { data, error } = await supabase
+      .from("community")
+      .select("*")
+      .order("rating", { ascending: false });
+    if (error) throw error;
+    communities.value = data || [];
+  } catch (e) {
+    console.error("Ошибка загрузки сообществ:", e);
+  } finally {
+    loading.value = false;
+  }
+});
+</script>

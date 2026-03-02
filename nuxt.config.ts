@@ -32,6 +32,14 @@ export default defineNuxtConfig({
     configFile: "./formkit.config.ts",
   },
 
+  typescript: {
+    tsConfig: {
+      compilerOptions: {
+        noImplicitAny: false,
+      },
+    },
+  },
+
   supabase: {
     types: "~/types/supabase.ts",
     url: process.env.NUXT_PUBLIC_SUPABASE_URL,

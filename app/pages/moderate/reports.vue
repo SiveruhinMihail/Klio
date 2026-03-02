@@ -1,30 +1,397 @@
+<!-- pages/moderate/reports.vue -->
+<template>
+  <div class="container mx-auto px-4 py-6 max-w-6xl">
+    <div
+      class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6"
+    >
+      <h1 class="text-3xl font-bold text-gray-800">Жалобы</h1>
+      <div class="relative w-full sm:w-64">
+        <input
+          v-model="searchInput"
+          type="text"
+          placeholder="Поиск по причине или имени..."
+          class="w-full px-4 py-2 pl-10 bg-white border border-primary/20 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition"
+          @input="debouncedSearch"
+        />
+        <MagnifyingGlassIcon
+          class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-primary/50"
+        />
+      </div>
+    </div>
+
+    <!-- Вкладки с типами -->
+    <div class="border-b border-primary/10 mb-6">
+      <button
+        v-for="tab in tabs"
+        :key="tab.value"
+        @click="filterType = tab.value"
+        :class="[
+          'px-4 py-2 text-sm font-medium transition-colors relative',
+          filterType === tab.value
+            ? 'text-accent border-b-2 border-accent'
+            : 'text-gray-600 hover:text-accent',
+        ]"
+      >
+        {{ tab.label }}
+        <span
+          v-if="tab.count"
+          class="absolute -top-1 -right-2 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full"
+          >{{ tab.count }}</span
+        >
+      </button>
+    </div>
+
+    <!-- Состояние загрузки -->
+    <div v-if="loading" class="text-center py-10 text-gray-500">
+      Загрузка...
+    </div>
+
+    <!-- Нет жалоб -->
+    <div
+      v-else-if="filteredReports.length === 0"
+      class="text-center py-10 text-gray-500"
+    >
+      Нет жалоб
+    </div>
+
+    <!-- Список жалоб -->
+    <div v-else class="space-y-4">
+      <div
+        v-for="r in filteredReports"
+        :key="r.id"
+        class="bg-white border border-primary/10 rounded-lg p-4 shadow-sm hover:shadow-md transition"
+      >
+        <div class="flex flex-col lg:flex-row justify-between gap-4">
+          <!-- Левая часть: информация о жалобе -->
+          <div class="flex-1 space-y-2">
+            <div class="flex items-center gap-2 text-sm">
+              <span class="bg-primary/10 text-primary px-2 py-0.5 rounded">{{
+                getTargetTypeLabel(r.target_type)
+              }}</span>
+              <span class="text-gray-500">ID: {{ r.target_id }}</span>
+            </div>
+
+            <!-- Ссылка на объект жалобы -->
+            <div class="text-gray-800">
+              <!-- Пост -->
+              <template v-if="r.target_type === 'post' && r.targetData">
+                <NuxtLink
+                  :to="`/post/${r.target_id}`"
+                  class="font-medium hover:text-accent"
+                >
+                  {{ r.targetData.title }}
+                </NuxtLink>
+              </template>
+              <!-- Комментарий -->
+              <template v-else-if="r.target_type === 'comment' && r.targetData">
+                <NuxtLink
+                  :to="`/post/${r.targetData.post_id}#comment-${r.target_id}`"
+                  class="font-medium hover:text-accent"
+                >
+                  {{ r.targetData.text }}
+                </NuxtLink>
+              </template>
+              <!-- Пользователь -->
+              <template v-else-if="r.target_type === 'user' && r.targetData">
+                <NuxtLink
+                  :to="`/profile/${r.targetData.auth_uid}`"
+                  class="font-medium hover:text-accent"
+                >
+                  {{ r.targetData.use || r.targetData.username }}
+                </NuxtLink>
+              </template>
+              <!-- Сообщество -->
+              <template
+                v-else-if="r.target_type === 'community' && r.targetData"
+              >
+                <NuxtLink
+                  :to="`/communities/${r.target_id}`"
+                  class="font-medium hover:text-accent flex items-center gap-1"
+                >
+                  <img
+                    :src="r.targetData.avatar || defaultAvatar"
+                    class="w-5 h-5 rounded-full object-cover"
+                    alt=""
+                    @error="handleImageError"
+                  />
+                  {{ r.targetData.name }}
+                </NuxtLink>
+              </template>
+              <div v-else class="text-gray-400 italic">(объект удалён)</div>
+            </div>
+
+            <!-- Причина -->
+            <p class="text-gray-600">
+              <span class="font-medium">Причина:</span> {{ r.reason }}
+            </p>
+
+            <!-- Информация об отправителе жалобы -->
+            <div class="flex items-center gap-2 text-sm text-gray-500">
+              <span class="font-medium">Отправитель:</span>
+              <NuxtLink
+                v-if="r.reporter"
+                :to="`/profile/${r.reporter.auth_uid}`"
+                class="flex items-center gap-1 hover:text-accent"
+              >
+                <img
+                  :src="r.reporter.avatar || defaultAvatar"
+                  class="w-5 h-5 rounded-full object-cover"
+                  alt=""
+                  @error="handleImageError"
+                />
+                <span>{{ r.reporter.use || r.reporter.username }}</span>
+              </NuxtLink>
+              <span v-else class="text-gray-400">(удалён)</span>
+            </div>
+
+            <!-- Информация об авторе (если есть и это не жалоба на пользователя) -->
+            <div
+              v-if="r.author && r.target_type !== 'user'"
+              class="flex items-center gap-2 text-sm text-gray-500"
+            >
+              <span class="font-medium">Автор:</span>
+              <NuxtLink
+                :to="`/profile/${r.author.auth_uid}`"
+                class="flex items-center gap-1 hover:text-accent"
+              >
+                <img
+                  :src="r.author.avatar || defaultAvatar"
+                  class="w-5 h-5 rounded-full object-cover"
+                  alt=""
+                  @error="handleImageError"
+                />
+                <span>{{ r.author.use || r.author.username }}</span>
+              </NuxtLink>
+              <span v-if="r.authorBanned" class="text-orange-600 ml-2 text-xs"
+                >(забанен)</span
+              >
+            </div>
+          </div>
+
+          <!-- Правая часть: панель действий -->
+          <div class="flex flex-col gap-2 min-w-[200px]">
+            <!-- Удалить контент (если это пост/комментарий/сообщество) -->
+            <button
+              v-if="
+                ['post', 'comment', 'community'].includes(
+                  r.target_type as string,
+                )
+              "
+              @click="deleteContent(r)"
+              :disabled="r.processing"
+              class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/80 transition disabled:opacity-50 w-full text-left flex items-center gap-2"
+              :title="`Удалить ${getTargetTypeLabel(r.target_type).toLowerCase()}`"
+            >
+              <TrashIcon class="w-5 h-5" />
+              <span>Удалить {{ getTargetTypeLabel(r.target_type) }}</span>
+            </button>
+
+            <!-- Бан автора (если автор существует и не забанен) -->
+            <button
+              v-if="r.author && !r.authorBanned"
+              @click="banUserOnly(r.author.id)"
+              :disabled="r.processing"
+              class="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition disabled:opacity-50 w-full text-left flex items-center gap-2"
+              title="Заблокировать автора"
+            >
+              <NoSymbolIcon class="w-5 h-5" />
+              <span>Забанить автора</span>
+            </button>
+
+            <!-- Бан + удалить всё автора (если автор существует) -->
+            <button
+              v-if="r.author"
+              @click="banUserWithContent(r.author.id)"
+              :disabled="r.processing"
+              class="px-4 py-2 bg-red-800 text-white rounded-lg hover:bg-red-900 transition disabled:opacity-50 w-full text-left flex items-center gap-2"
+              title="Заблокировать и удалить весь контент автора"
+            >
+              <TrashIcon class="w-5 h-5" />
+              <NoSymbolIcon class="w-5 h-5" />
+              <span>Бан + удалить всё</span>
+            </button>
+
+            <!-- Бан отправителя жалобы -->
+            <button
+              v-if="r.reporter && !r.reporterBanned"
+              @click="banUserOnly(r.reporter.id)"
+              :disabled="r.processing"
+              class="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition disabled:opacity-50 w-full text-left flex items-center gap-2"
+              title="Заблокировать отправителя"
+            >
+              <NoSymbolIcon class="w-5 h-5" />
+              <span>Забанить отправителя</span>
+            </button>
+
+            <!-- Отклонить жалобу -->
+            <button
+              @click="resolve(r.id)"
+              :disabled="r.processing"
+              class="px-4 py-2 border border-green-600 text-green-600 rounded-lg hover:bg-green-50 transition disabled:opacity-50 w-full text-left flex items-center gap-2"
+            >
+              <CheckIcon class="w-5 h-5" />
+              <span>Отклонить жалобу</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
 <script setup lang="ts">
+import { ref, computed, onMounted } from "vue";
+import {
+  MagnifyingGlassIcon,
+  TrashIcon,
+  NoSymbolIcon,
+  CheckIcon,
+} from "@heroicons/vue/24/outline";
 import { useAuth } from "~/composables/useAuth";
+import type { st } from "vue-router/dist/router-CWoNjPRp.mjs";
 
-const { isModerator, isAdmin } = useAuth();
 const supabase = useSupabaseClient();
+const { isModerator, isAdmin } = useAuth();
+const defaultAvatar =
+  "https://phlyzwfqtpddvgrprngo.supabase.co/storage/v1/object/public/avatars/default.jpg";
 
-// Тип для отчёта с дополнительными полями
+const handleImageError = (e: Event) => {
+  (e.target as HTMLImageElement).src = defaultAvatar;
+};
+
 type ReportWithDetails = {
-  // поля из таблицы reports
   id: number;
-  created_at: string | null;
-  reason: string | null;
-  reporter_id: number | null;
-  status: string | null;
-  target_id: number;
   target_type: string | null;
-  reporter: { username: string | null } | null;
-  // дополнительные поля
-  processing: boolean;
+  target_id: number;
+  reason: string | null;
+  reporter: {
+    id: number;
+    username: string | null;
+    use: string | null;
+    avatar: string | null;
+    auth_uid: string;
+  } | null;
+  reporterBanned: boolean;
+  status: string | null;
+  created_at: string | null;
+  processing?: boolean;
   targetData?: any;
-  authorId?: number;
-  authorExists?: boolean;
-  authorBanned?: boolean;
+  author?: {
+    id: number;
+    username: string | null;
+    use: string | null;
+    avatar: string | null;
+    auth_uid: string;
+  } | null;
+  authorBanned: boolean;
 };
 
 const reports = ref<ReportWithDetails[]>([]);
 const loading = ref(true);
+const filterType = ref<"all" | "post" | "comment" | "user" | "community">(
+  "all",
+);
+const searchInput = ref("");
+const searchQuery = ref("");
+
+const tabs = computed(() => [
+  { label: "Все", value: "all" as const, count: reports.value.length },
+  {
+    label: "Посты",
+    value: "post" as const,
+    count: reports.value.filter((r) => r.target_type === "post").length,
+  },
+  {
+    label: "Комментарии",
+    value: "comment" as const,
+    count: reports.value.filter((r) => r.target_type === "comment").length,
+  },
+  {
+    label: "Пользователи",
+    value: "user" as const,
+    count: reports.value.filter((r) => r.target_type === "user").length,
+  },
+  {
+    label: "Сообщества",
+    value: "community" as const,
+    count: reports.value.filter((r) => r.target_type === "community").length,
+  },
+]);
+
+const filteredReports = computed(() => {
+  let filtered = reports.value;
+  if (filterType.value !== "all") {
+    filtered = filtered.filter((r) => r.target_type === filterType.value);
+  }
+  const query = searchQuery.value.toLowerCase();
+  if (query) {
+    filtered = filtered.filter((r) => {
+      const reasonMatch = r.reason?.toLowerCase().includes(query);
+      const reporterName =
+        r.reporter?.use?.toLowerCase().includes(query) ||
+        r.reporter?.username?.toLowerCase().includes(query);
+      const authorName =
+        r.author?.use?.toLowerCase().includes(query) ||
+        r.author?.username?.toLowerCase().includes(query);
+      const targetName =
+        r.target_type === "community"
+          ? r.targetData?.name?.toLowerCase().includes(query)
+          : false;
+      return reasonMatch || reporterName || authorName || targetName;
+    });
+  }
+  return filtered;
+});
+
+// Функция для получения названия типа (принимает string | null)
+function getTargetTypeLabel(type: string | null) {
+  switch (type) {
+    case "post":
+      return "Пост";
+    case "comment":
+      return "Комментарий";
+    case "user":
+      return "Пользователь";
+    case "community":
+      return "Сообщество";
+    default:
+      return "Объект";
+  }
+}
+
+function debounce<T extends (...args: any[]) => any>(fn: T, delay: number) {
+  let timer: ReturnType<typeof setTimeout>;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
+const debouncedSearch = debounce(() => {
+  searchQuery.value = searchInput.value;
+}, 300);
+
+// Функция для получения данных пользователя (без is_banned)
+async function fetchUser(userId: number): Promise<{
+  id: number;
+  username: string | null;
+  use: string | null;
+  avatar: string | null;
+  auth_uid: string;
+} | null> {
+  const { data, error } = await supabase
+    .from("user")
+    .select("id, username, use, avatar, auth_uid")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    id: data.id,
+    username: data.username,
+    use: data.use,
+    avatar: data.avatar,
+    auth_uid: data.auth_uid,
+  };
+}
 
 async function loadReports() {
   if (!isModerator.value && !isAdmin.value) return navigateTo("/");
@@ -32,76 +399,123 @@ async function loadReports() {
   try {
     const { data: reportsData, error } = await supabase
       .from("reports")
-      .select("*, reporter:user!reporter_id(username)")
+      .select(
+        "*, reporter:user!reporter_id(id, username, use, avatar, auth_uid, is_banned)",
+      )
       .eq("status", "pending")
       .order("created_at", { ascending: false });
     if (error) throw error;
 
-    const enriched: ReportWithDetails[] = await Promise.all(
+    const enriched = await Promise.all(
       (reportsData || []).map(async (r) => {
-        // Базовый объект
         const report: ReportWithDetails = {
-          ...r,
+          id: r.id,
+          target_type: r.target_type,
+          target_id: r.target_id,
+          reason: r.reason,
+          reporter: r.reporter
+            ? {
+                id: r.reporter.id,
+                username: r.reporter.username,
+                use: r.reporter.use,
+                avatar: r.reporter.avatar,
+                auth_uid: r.reporter.auth_uid,
+              }
+            : null,
+          reporterBanned: r.reporter?.is_banned || false,
+          status: r.status,
+          created_at: r.created_at,
           processing: false,
           targetData: null,
-          authorId: undefined,
-          authorExists: false,
+          author: null,
           authorBanned: false,
         };
 
-        // Загружаем данные цели
+        // Загружаем данные цели в зависимости от типа
         if (r.target_type === "post") {
           const { data: post } = await supabase
             .from("post")
-            .select("id, title, description, author_id")
+            .select("id, title, author_id")
             .eq("id", r.target_id)
             .maybeSingle();
           report.targetData = post;
-          report.authorId = post?.author_id as number;
+          if (post?.author_id) {
+            const author = await fetchUser(post.author_id);
+            report.author = author;
+            const { data: authorData } = await supabase
+              .from("user")
+              .select("is_banned")
+              .eq("id", post.author_id)
+              .maybeSingle();
+            report.authorBanned = authorData?.is_banned || false;
+          }
         } else if (r.target_type === "comment") {
           const { data: comment } = await supabase
             .from("comments")
-            .select("id, text, user_id")
+            .select("id, text, user_id, post_id")
             .eq("id", r.target_id)
             .maybeSingle();
           report.targetData = comment;
-          report.authorId = comment?.user_id as number;
+          if (comment?.user_id) {
+            const author = await fetchUser(comment.user_id);
+            report.author = author;
+            const { data: authorData } = await supabase
+              .from("user")
+              .select("is_banned")
+              .eq("id", comment.user_id)
+              .maybeSingle();
+            report.authorBanned = authorData?.is_banned || false;
+          }
         } else if (r.target_type === "user") {
           const { data: user } = await supabase
             .from("user")
-            .select("id, username, use, is_banned")
+            .select("id, use, username, auth_uid")
             .eq("id", r.target_id)
             .maybeSingle();
           report.targetData = user;
-          report.authorId = user?.id; // для пользователя автор - он сам
-        }
-
-        // Проверяем статус автора
-        if (report.authorId) {
-          const { data: author } = await supabase
-            .from("user")
-            .select("id, is_banned")
-            .eq("id", report.authorId)
+          if (user) {
+            report.author = {
+              id: user.id,
+              username: user.username,
+              use: user.use,
+              avatar: null,
+              auth_uid: user.auth_uid,
+            };
+            const { data: authorData } = await supabase
+              .from("user")
+              .select("is_banned")
+              .eq("id", r.target_id)
+              .maybeSingle();
+            report.authorBanned = authorData?.is_banned || false;
+          }
+        } else if (r.target_type === "community") {
+          const { data: community } = await supabase
+            .from("community")
+            .select("id, name, avatar, owner_id")
+            .eq("id", r.target_id)
             .maybeSingle();
-          report.authorExists = !!author;
-          report.authorBanned = author?.is_banned || false;
-        } else {
-          report.authorExists = false;
-          report.authorBanned = false;
+          report.targetData = community;
+          if (community?.owner_id) {
+            const author = await fetchUser(community.owner_id);
+            report.author = author;
+            const { data: authorData } = await supabase
+              .from("user")
+              .select("is_banned")
+              .eq("id", community.owner_id)
+              .maybeSingle();
+            report.authorBanned = authorData?.is_banned || false;
+          }
         }
-
         return report;
       }),
     );
     reports.value = enriched;
   } catch (e) {
-    console.error(e);
+    console.error("Error loading reports:", e);
   } finally {
     loading.value = false;
   }
 }
-
-onMounted(loadReports);
 
 async function deleteContent(report: ReportWithDetails) {
   report.processing = true;
@@ -116,8 +530,13 @@ async function deleteContent(report: ReportWithDetails) {
         method: "POST",
         body: { commentId: report.target_id },
       });
-    } else if (report.target_type === "user") {
-      alert("Для пользователя используйте кнопки бана");
+    } else if (report.target_type === "community") {
+      await $fetch("/api/moderation/delete-community", {
+        method: "POST",
+        body: { communityId: report.target_id },
+      });
+    } else {
+      alert("Для этого типа используйте другие кнопки");
       return;
     }
     await $fetch("/api/moderation/resolve-report", {
@@ -133,45 +552,29 @@ async function deleteContent(report: ReportWithDetails) {
   }
 }
 
-async function banUserOnly(report: ReportWithDetails) {
-  if (!report.authorId) return;
-  report.processing = true;
+async function banUserOnly(userId: number) {
   try {
     await $fetch("/api/moderation/ban-user-only", {
       method: "POST",
-      body: { userId: report.authorId },
+      body: { userId },
     });
-    await $fetch("/api/moderation/resolve-report", {
-      method: "POST",
-      body: { reportId: report.id, status: "resolved" },
-    });
-    reports.value = reports.value.filter((r) => r.id !== report.id);
+    await loadReports();
   } catch (e) {
     console.error(e);
     alert("Ошибка при бане");
-  } finally {
-    report.processing = false;
   }
 }
 
-async function banUserWithContent(report: ReportWithDetails) {
-  if (!report.authorId) return;
-  report.processing = true;
+async function banUserWithContent(userId: number) {
   try {
     await $fetch("/api/moderation/ban-user-with-content", {
       method: "POST",
-      body: { userId: report.authorId },
+      body: { userId },
     });
-    await $fetch("/api/moderation/resolve-report", {
-      method: "POST",
-      body: { reportId: report.id, status: "resolved" },
-    });
-    reports.value = reports.value.filter((r) => r.id !== report.id);
+    await loadReports();
   } catch (e) {
     console.error(e);
     alert("Ошибка при бане с удалением");
-  } finally {
-    report.processing = false;
   }
 }
 
@@ -192,90 +595,6 @@ async function resolve(reportId: number) {
     if (report) report.processing = false;
   }
 }
+
+onMounted(loadReports);
 </script>
-
-<template>
-  <div class="container mx-auto px-4 py-6">
-    <h1 class="text-3xl font-bold mb-6">Жалобы</h1>
-    <div v-if="loading">Загрузка...</div>
-    <div v-else-if="reports.length === 0">Нет новых жалоб</div>
-    <div v-else>
-      <div v-for="r in reports" :key="r.id" class="border p-4 mb-4 rounded">
-        <div class="flex justify-between items-start">
-          <div class="flex-1">
-            <p><strong>Тип:</strong> {{ r.target_type }}</p>
-            <p><strong>ID цели:</strong> {{ r.target_id }}</p>
-            <p v-if="r.targetData">
-              <strong>Содержимое:</strong>
-              <span v-if="r.target_type === 'post'">
-                Пост: {{ r.targetData.title }} ({{ r.targetData.description }})
-              </span>
-              <span v-else-if="r.target_type === 'comment'">
-                Комментарий: {{ r.targetData.text }}
-              </span>
-              <span v-else-if="r.target_type === 'user'">
-                Пользователь: {{ r.targetData.use || r.targetData.username }}
-              </span>
-            </p>
-            <p><strong>Причина:</strong> {{ r.reason }}</p>
-            <p><strong>От:</strong> {{ r.reporter?.username }}</p>
-
-            <!-- Информация об авторе (если это не жалоба на пользователя) -->
-            <div v-if="r.authorId && r.target_type !== 'user'" class="mt-2">
-              <p>
-                <strong>Автор:</strong>
-                <span v-if="!r.authorExists" class="text-red-600"
-                  >(удалён)</span
-                >
-                <span v-else-if="r.authorBanned" class="text-orange-600"
-                  >(забанен)</span
-                >
-                <span v-else class="text-green-600">активен</span>
-              </p>
-            </div>
-          </div>
-
-          <div class="flex gap-2">
-            <!-- Удалить контент (пост/комментарий) -->
-            <button
-              class="bg-red-600 text-white px-3 py-1 rounded"
-              :disabled="r.processing"
-              @click="deleteContent(r)"
-            >
-              Удалить {{ r.target_type }}
-            </button>
-
-            <!-- Кнопки для бана автора (только если есть authorId) -->
-            <template v-if="r.authorId">
-              <button
-                class="bg-orange-600 text-white px-3 py-1 rounded"
-                :disabled="r.processing || !r.authorExists || r.authorBanned"
-                title="Забанить без удаления контента"
-                @click="banUserOnly(r)"
-              >
-                Только бан
-              </button>
-              <button
-                class="bg-red-800 text-white px-3 py-1 rounded"
-                :disabled="r.processing || !r.authorExists || r.authorBanned"
-                title="Забанить и удалить все посты/комментарии"
-                @click="banUserWithContent(r)"
-              >
-                Бан + удалить контент
-              </button>
-            </template>
-
-            <!-- Отклонить жалобу -->
-            <button
-              class="bg-green-600 text-white px-3 py-1 rounded"
-              :disabled="r.processing"
-              @click="resolve(r.id)"
-            >
-              Отклонить
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>

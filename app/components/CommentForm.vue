@@ -1,10 +1,92 @@
-<script setup lang="ts">
-import { useStorage } from "~/composables/useStorage";
-import type { Database } from "~/types/supabase";
+<template>
+  <div>
+    <!-- Индикатор ответа -->
+    <div v-if="replyTo" class="mb-2 text-sm text-primary">
+      Ответ <span class="font-medium">{{ replyTo }}</span>
+      <button
+        @click="$emit('cancel')"
+        class="ml-2 text-gray-400 hover:text-primary transition"
+      >
+        ✕
+      </button>
+    </div>
 
-const supabase = useSupabaseClient<Database>();
-const { userId } = useAuth();
-const { uploadFile, getPublicUrl } = useStorage();
+    <!-- Основная строка: поле ввода + кнопки -->
+    <div class="flex items-start gap-2">
+      <!-- Поле ввода (адаптивная высота) -->
+      <div class="flex-1">
+        <textarea
+          ref="textareaRef"
+          v-model="text"
+          rows="1"
+          maxlength="5000"
+          class="w-full px-4 py-2 bg-white border border-primary/20 rounded-lg resize-none overflow-hidden focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition"
+          :placeholder="
+            replyTo ? 'Напишите ответ...' : 'Напишите комментарий...'
+          "
+          @input="adjustHeight"
+          @keydown.enter.prevent="submitOnEnter"
+        ></textarea>
+      </div>
+
+      <!-- Кнопки: скрепка и отправка (компактные, круглые) -->
+      <div class="flex items-center gap-1 mt-1">
+        <button
+          @click="triggerFileSelect"
+          class="p-2 text-gray-400 hover:text-accent rounded-full hover:bg-gray-100 transition"
+          title="Прикрепить изображения"
+          type="button"
+        >
+          <PaperClipIcon class="w-5 h-5" />
+        </button>
+        <button
+          @click="submitComment"
+          :disabled="!text.trim() || submitting"
+          class="p-2 bg-accent text-white rounded-full hover:bg-accent/80 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          type="button"
+        >
+          <PaperAirplaneIcon v-if="!submitting" class="w-5 h-5" />
+          <span
+            v-else
+            class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"
+          ></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Скрытый input для файлов -->
+    <input
+      ref="fileInput"
+      type="file"
+      accept="image/jpeg,image/png,image/webp"
+      multiple
+      class="hidden"
+      @change="onFileSelected"
+    />
+
+    <!-- Превью изображений -->
+    <div v-if="imagePreviews.length" class="flex flex-wrap gap-2 mt-3">
+      <div v-for="(preview, idx) in imagePreviews" :key="idx" class="relative">
+        <img
+          :src="preview"
+          class="w-12 h-12 object-cover rounded border border-primary/20"
+        />
+        <button
+          @click="removeImage(idx)"
+          class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 shadow-sm"
+          type="button"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, nextTick } from "vue";
+import { PaperClipIcon, PaperAirplaneIcon } from "@heroicons/vue/24/outline";
+import type { Database } from "~/types/supabase";
 
 const props = defineProps<{
   postId: number;
@@ -17,169 +99,118 @@ const emit = defineEmits<{
   (e: "cancel"): void;
 }>();
 
+const supabase = useSupabaseClient<Database>();
+const { userId } = useAuth();
+const { uploadFile, getPublicUrl } = useStorage();
+
 const text = ref("");
 const submitting = ref(false);
-const selectedImages = ref<File[]>([]);
+const selectedFiles = ref<File[]>([]);
 const imagePreviews = ref<string[]>([]);
+const fileInput = ref<HTMLInputElement | null>(null);
+const textareaRef = ref<HTMLTextAreaElement | null>(null);
 
-function handleImagesChange(event: Event) {
-  const input = event.target as HTMLInputElement;
-  if (!input.files || input.files.length === 0) {
-    selectedImages.value = [];
-    imagePreviews.value = [];
-    return;
+// Адаптивная высота textarea
+function adjustHeight() {
+  if (textareaRef.value) {
+    textareaRef.value.style.height = "auto";
+    textareaRef.value.style.height = textareaRef.value.scrollHeight + "px";
   }
-  // Очищаем предыдущие превью
-  imagePreviews.value.forEach((url) => {
-    if (url) URL.revokeObjectURL(url);
+}
+
+// Вызов adjustHeight при изменении текста
+watch(text, () => {
+  nextTick(adjustHeight);
+});
+
+function triggerFileSelect() {
+  fileInput.value?.click();
+}
+
+function onFileSelected(event: Event) {
+  const files = (event.target as HTMLInputElement).files;
+  if (!files) return;
+  const newFiles = Array.from(files);
+  selectedFiles.value = [...selectedFiles.value, ...newFiles];
+  newFiles.forEach((file) => {
+    const url = URL.createObjectURL(file);
+    imagePreviews.value.push(url);
   });
-  const files = Array.from(input.files);
-  selectedImages.value = files;
-  imagePreviews.value = files.map((file) => URL.createObjectURL(file));
+  (event.target as HTMLInputElement).value = "";
 }
 
 function removeImage(index: number) {
   const url = imagePreviews.value[index];
-  if (url) {
-    URL.revokeObjectURL(url);
-  }
-  selectedImages.value.splice(index, 1);
+  if (url) URL.revokeObjectURL(url);
   imagePreviews.value.splice(index, 1);
+  selectedFiles.value.splice(index, 1);
 }
 
-async function submit() {
+function submitOnEnter(e: KeyboardEvent) {
+  if (!e.shiftKey) {
+    e.preventDefault();
+    submitComment();
+  }
+}
+
+async function submitComment() {
   if (!text.value.trim() || !userId.value) return;
   submitting.value = true;
-
   try {
-    // 1. Вставляем комментарий
-    const { data: comment, error } = await supabase
+    const { data: comment, error: commentError } = await supabase
       .from("comments")
       .insert({
         post_id: props.postId,
         user_id: userId.value,
         text: text.value.trim(),
         parent_id: props.parentId || null,
-        created_at: new Date().toISOString(),
       })
-      .select()
+      .select("*, user:user_id(*)")
       .single();
-    if (error) throw error;
+    if (commentError) throw commentError;
 
-    // 2. Загружаем изображения, если есть
-    const imageUrls: string[] = [];
-    if (selectedImages.value.length > 0) {
-      for (const file of selectedImages.value) {
+    if (selectedFiles.value.length) {
+      const imageRecords: Database["public"]["Tables"]["comment_images"]["Insert"][] =
+        [];
+      for (let i = 0; i < selectedFiles.value.length; i++) {
+        const file = selectedFiles.value[i];
         const uploadResult = await uploadFile(
           "comments",
-          file,
-          comment.id.toString(),
+          file as any,
+          `comment-${comment.id}`,
           { upsert: false, optimize: true },
         );
-        const publicUrl = getPublicUrl("comments", uploadResult.path);
-        imageUrls.push(publicUrl);
+        const url = getPublicUrl("comments", uploadResult.path);
+        imageRecords.push({
+          comment_id: comment.id,
+          url,
+          sort_order: i,
+        });
       }
-
-      const imageRecords = imageUrls.map((url, idx) => ({
-        comment_id: comment.id,
-        url,
-        sort_order: idx,
-      }));
-      await supabase.from("comment_images").insert(imageRecords);
+      const { error: imagesError } = await supabase
+        .from("comment_images")
+        .insert(imageRecords);
+      if (imagesError) throw imagesError;
     }
 
-    // 3. Получаем полный комментарий с автором, лайками и изображениями
-    const { data: fullComment, error: fetchError } = await supabase
-      .from("comments")
-      .select(
-        `
-        *,
-        user:user_id(*),
-        likes:like_to_comment(count),
-        images:comment_images(*)
-      `,
-      )
-      .eq("id", comment.id)
-      .single();
-
-    if (fetchError) throw fetchError;
-    if (!fullComment) throw new Error("Не удалось загрузить комментарий");
-
-    const enriched = {
-      ...fullComment,
-      likes_count: fullComment.likes?.[0]?.count || 0,
-      liked: false,
-    };
-
-    emit("comment-added", enriched);
+    // Очистка
     text.value = "";
-    selectedImages.value = [];
     imagePreviews.value.forEach((url) => {
       if (url) URL.revokeObjectURL(url);
     });
     imagePreviews.value = [];
+    selectedFiles.value = [];
+    emit("comment-added", comment);
   } catch (e) {
-    console.error("Error submitting comment:", e);
+    console.error(e);
     alert("Ошибка при отправке комментария");
   } finally {
     submitting.value = false;
   }
 }
+
+// При монтировании устанавливаем начальную высоту
+onMounted(() => {
+  nextTick(adjustHeight);
+});
 </script>
-<template>
-  <div class="mb-4">
-    <div v-if="replyTo" class="text-sm text-gray-600 mb-2">
-      Ответ {{ replyTo }}
-      <button
-        @click="$emit('cancel')"
-        class="text-red-500 hover:underline ml-2"
-      >
-        Отмена
-      </button>
-    </div>
-    <textarea
-      v-model="text"
-      rows="3"
-      class="w-full border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
-      :placeholder="replyTo ? 'Ваш ответ...' : 'Напишите комментарий...'"
-    ></textarea>
-
-    <!-- Выбор изображений -->
-    <input
-      type="file"
-      accept="image/*"
-      multiple
-      @change="handleImagesChange"
-      class="mt-2"
-    />
-    <div v-if="imagePreviews.length" class="flex flex-wrap gap-2 mt-2">
-      <div v-for="(preview, idx) in imagePreviews" :key="idx" class="relative">
-        <img :src="preview" class="h-16 w-16 object-cover rounded" />
-        <button
-          type="button"
-          @click="removeImage(idx)"
-          class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
-        >
-          ×
-        </button>
-      </div>
-    </div>
-
-    <div class="flex justify-end mt-2 gap-2">
-      <button
-        v-if="replyTo"
-        @click="$emit('cancel')"
-        class="px-4 py-2 text-gray-600 hover:text-gray-800"
-      >
-        Отмена
-      </button>
-      <button
-        @click="submit"
-        :disabled="!text.trim() || submitting"
-        class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-      >
-        {{ submitting ? "Отправка..." : replyTo ? "Ответить" : "Отправить" }}
-      </button>
-    </div>
-  </div>
-</template>
