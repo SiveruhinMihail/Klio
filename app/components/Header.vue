@@ -165,7 +165,13 @@ const dropdownUser = computed(() => ({
       <ClientOnly>
         <div class="flex items-center space-x-3">
           <!-- Переключатель темы -->
-          <ThemeToggle />
+          <ClientOnly>
+            <ThemeToggle />
+            <template #fallback>
+              <div class="w-9 h-9"></div>
+              <!-- заглушка того же размера -->
+            </template>
+          </ClientOnly>
 
           <!-- Состояние загрузки -->
           <div v-if="isLoading" class="flex items-center">
