@@ -88,6 +88,7 @@ export default defineNuxtConfig({
       supabaseUrl: process.env.NUXT_PUBLIC_SUPABASE_URL,
       supabaseKey: process.env.NUXT_PUBLIC_SUPABASE_KEY,
       appName: process.env.NUXT_PUBLIC_APP_NAME || "Форум",
+      baseURL: process.env.NUXT_APP_BASE_URL || "/Klio/",
     },
   },
 });

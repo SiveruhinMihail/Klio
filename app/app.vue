@@ -12,6 +12,6 @@
 @import url("./assets/css/index.css");
 @font-face {
   font-family: "FiraMono";
-  src: url("../public/fonts/FiraMono-Regular.ttf");
+  src: url("/Klio/fonts/FiraMono-Regular.ttf");
 }
 </style>
