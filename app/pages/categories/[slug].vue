@@ -13,8 +13,8 @@
           v-for="post in posts"
           :key="post.id"
           :post="post"
-          @like="() => handleLike(post)"
-          @favorite="() => handleFavorite(post)"
+          @like="handleLike"
+          @favorite="handleFavorite"
         />
       </div>
       <div v-if="hasMore" class="text-center mt-4">
@@ -32,24 +32,28 @@
 <script setup lang="ts">
 import type { Database } from "~/types/supabase";
 import { useAuth } from "~/composables/useAuth";
-import { useFavorites } from "~/composables/useFavorites";
+import { useReactionState } from "~/composables/useReactionState";
 import PostCard from "~/components/PostCard.vue";
 
 const route = useRoute();
 const supabase = useSupabaseClient<Database>();
 const { getPostsByCategory, getCategoryBySlug } = usePosts();
 const { isAuthenticated, userId } = useAuth();
-const { toggleFavorite } = useFavorites();
+const { initPostReactions, toggleLike, toggleFavorite } = useReactionState();
 
 const category = ref<any>(null);
 const posts = ref<any[]>([]);
 const loading = ref(true);
 const page = ref(0);
 const hasMore = ref(true);
+const limit = 20;
 
-async function enrichPostsWithUserData(posts: any[]) {
-  if (!isAuthenticated.value || !userId.value || !posts.length) return posts;
-  const postIds = posts.map((p) => p.id);
+// Инициализация реакций для массива постов
+async function initReactionsForPosts(postsData: any[]) {
+  if (!isAuthenticated.value || !userId.value || !postsData.length)
+    return postsData;
+
+  const postIds = postsData.map((p) => p.id);
   const [likesResult, favoritesResult] = await Promise.all([
     supabase
       .from("like_to_post")
@@ -62,16 +66,22 @@ async function enrichPostsWithUserData(posts: any[]) {
       .eq("user_id", userId.value)
       .in("post_id", postIds),
   ]);
+
   const likedSet = new Set(likesResult.data?.map((l) => l.post_id) || []);
   const favoritedSet = new Set(
     favoritesResult.data?.map((f) => f.post_id) || [],
   );
-  return posts.map((post) => ({
-    ...post,
-    isLiked: likedSet.has(post.id),
-    isFavorited: favoritedSet.has(post.id),
-    rating: post.rating || 0,
-  }));
+
+  postsData.forEach((post) => {
+    initPostReactions(
+      post.id,
+      likedSet.has(post.id),
+      post.likes?.[0]?.count || 0,
+      favoritedSet.has(post.id),
+    );
+  });
+
+  return postsData;
 }
 
 async function loadCategory() {
@@ -94,68 +104,30 @@ async function resetAndLoad() {
 }
 
 async function loadPosts(offset: number) {
-  const newPosts = await getPostsByCategory(category.value.id, 20, offset);
-  const enriched = await enrichPostsWithUserData(newPosts);
-  if (enriched.length < 20) hasMore.value = false;
+  const newPosts = await getPostsByCategory(category.value.id, limit, offset);
+  const enriched = await initReactionsForPosts(newPosts);
+  if (enriched.length < limit) hasMore.value = false;
   posts.value = offset === 0 ? enriched : [...posts.value, ...enriched];
 }
 
 async function loadMore() {
   page.value++;
-  await loadPosts(page.value * 20);
+  await loadPosts(page.value * limit);
 }
 
+// Обработчики теперь вызывают глобальные функции
 async function handleLike(post: any) {
-  // оптимистичное обновление как на главной
-  if (!isAuthenticated.value || !userId.value) return;
-  const wasLiked = post.isLiked;
-  post.isLiked = !wasLiked;
-  if (post.likes?.[0]) post.likes[0].count += wasLiked ? -1 : 1;
-  // обновляем в массиве
-  const index = posts.value.findIndex((p) => p.id === post.id);
-  if (index !== -1) posts.value[index] = { ...post };
   try {
-    if (wasLiked) {
-      await supabase
-        .from("like_to_post")
-        .delete()
-        .eq("post_id", post.id)
-        .eq("user_id", userId.value);
-    } else {
-      await supabase
-        .from("like_to_post")
-        .insert({ post_id: post.id, user_id: userId.value });
-    }
+    await toggleLike(post.id);
   } catch (e) {
-    post.isLiked = wasLiked;
-    if (post.likes?.[0]) post.likes[0].count += wasLiked ? 1 : -1;
-    if (index !== -1) posts.value[index] = { ...post };
     console.error(e);
   }
 }
 
 async function handleFavorite(post: any) {
-  if (!isAuthenticated.value || !userId.value) return;
-  const uid = userId.value; // теперь TypeScript знает, что это number
-  const wasFavorited = post.isFavorited;
-  post.isFavorited = !wasFavorited;
-  const index = posts.value.findIndex((p) => p.id === post.id);
-  if (index !== -1) posts.value[index] = { ...post };
   try {
-    if (wasFavorited) {
-      await supabase
-        .from("favorites")
-        .delete()
-        .eq("post_id", post.id)
-        .eq("user_id", uid);
-    } else {
-      await supabase
-        .from("favorites")
-        .insert({ post_id: post.id, user_id: uid });
-    }
+    await toggleFavorite(post.id);
   } catch (e) {
-    post.isFavorited = wasFavorited;
-    if (index !== -1) posts.value[index] = { ...post };
     console.error(e);
   }
 }

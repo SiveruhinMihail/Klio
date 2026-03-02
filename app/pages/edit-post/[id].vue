@@ -114,6 +114,7 @@
               <img
                 :src="img.url"
                 class="w-20 h-20 object-cover rounded border border-primary/20"
+                loading="lazy"
               />
               <button
                 type="button"
@@ -140,6 +141,7 @@
             >
               <img
                 :src="preview"
+                loading="lazy"
                 class="w-20 h-20 object-cover rounded border border-primary/20"
               />
               <button

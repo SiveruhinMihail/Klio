@@ -4,6 +4,9 @@ const { getHomeFeed, getRecommendedPosts } = usePosts();
 const { isAuthenticated, userId } = useAuth();
 import { MagnifyingGlassIcon } from "@heroicons/vue/24/outline";
 import { onClickOutside } from "@vueuse/core";
+import { useReactionState } from "~/composables/useReactionState";
+
+const { initPostReactions, toggleLike, toggleFavorite } = useReactionState();
 
 // Все категории с постами (загружаются один раз)
 const allCategories = ref<any[]>([]);
@@ -42,7 +45,43 @@ async function loadFeed() {
       getHomeFeed(),
     ]);
 
-    recommendedPosts.value = await enrichPostsWithUserData(recommended || []);
+    // Инициализируем глобальное состояние для всех загруженных постов
+    const allPosts = [...(recommended || [])];
+    categoriesFeed.forEach((cat) => {
+      allPosts.push(...(cat.posts || []));
+    });
+
+    if (allPosts.length && isAuthenticated.value && userId.value) {
+      const postIds = allPosts.map((p) => p.id);
+      const [likesResult, favoritesResult] = await Promise.all([
+        supabase
+          .from("like_to_post")
+          .select("post_id")
+          .eq("user_id", userId.value)
+          .in("post_id", postIds),
+        supabase
+          .from("favorites")
+          .select("post_id")
+          .eq("user_id", userId.value)
+          .in("post_id", postIds),
+      ]);
+
+      const likedSet = new Set(likesResult.data?.map((l) => l.post_id) || []);
+      const favoritedSet = new Set(
+        favoritesResult.data?.map((f) => f.post_id) || [],
+      );
+
+      allPosts.forEach((post) => {
+        initPostReactions(
+          post.id,
+          likedSet.has(post.id),
+          post.likes?.[0]?.count || 0,
+          favoritedSet.has(post.id),
+        );
+      });
+    }
+
+    recommendedPosts.value = recommended || [];
     allCategories.value = categoriesFeed;
   } catch (e) {
     console.error("Ошибка загрузки ленты:", e);
@@ -201,66 +240,20 @@ function updatePost(updatedPost: any) {
 
 // Обработка лайка (без изменений)
 async function handleLike(post: any) {
-  if (!isAuthenticated.value || !userId.value) return;
-  const wasLiked = post.isLiked;
-  // Optimistic update
-  post.isLiked = !wasLiked;
-  if (post.likes?.[0]) {
-    post.likes[0].count += wasLiked ? -1 : 1;
-  }
-  updatePost(post);
-
   try {
-    if (wasLiked) {
-      await supabase
-        .from("like_to_post")
-        .delete()
-        .eq("post_id", post.id)
-        .eq("user_id", userId.value);
-    } else {
-      await supabase
-        .from("like_to_post")
-        .insert({ post_id: post.id, user_id: userId.value });
-    }
+    await toggleLike(post.id);
   } catch (e) {
-    // Откат при ошибке
-    post.isLiked = wasLiked;
-    if (post.likes?.[0]) {
-      post.likes[0].count += wasLiked ? 1 : -1;
-    }
-    updatePost(post);
     console.error("Error toggling like:", e);
   }
 }
 
-// Обработка избранного (без изменений)
 async function handleFavorite(post: any) {
-  if (!isAuthenticated.value || !userId.value) return;
-  const wasFavorited = post.isFavorited;
-  // Optimistic update
-  post.isFavorited = !wasFavorited;
-  updatePost(post);
-
   try {
-    if (wasFavorited) {
-      await supabase
-        .from("favorites")
-        .delete()
-        .eq("post_id", post.id)
-        .eq("user_id", userId.value);
-    } else {
-      await supabase
-        .from("favorites")
-        .insert({ post_id: post.id, user_id: userId.value });
-    }
+    await toggleFavorite(post.id);
   } catch (e) {
-    // Откат
-    post.isFavorited = wasFavorited;
-    updatePost(post);
     console.error("Error toggling favorite:", e);
   }
 }
-
 function onResultClick() {
   showSearchResults.value = false;
 }
@@ -314,16 +307,17 @@ onMounted(loadFeed);
         v-model="searchQuery"
         type="text"
         placeholder="Поиск по категориям и постам..."
-        class="w-full p-2 pl-9 text-sm border border-primary/30 rounded-lg shadow-sm focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition"
+        class="w-full p-2 pl-9 text-sm bg-white dark:bg-gray-800 border border-primary/30 dark:border-gray-700 rounded-lg shadow-sm focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition text-gray-900 dark:text-gray-100"
         @input="handleSearch"
         @keyup.enter="handleSearchInstant"
       />
       <MagnifyingGlassIcon
-        class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-primary/50"
+        class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-primary/50 dark:text-gray-500"
       />
+      <!-- Результаты поиска -->
       <div
         v-if="showSearchResults && searchResults.length"
-        class="absolute z-10 mt-1 w-full bg-white shadow-lg border border-primary/20 rounded-lg p-2"
+        class="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 shadow-lg border border-primary/20 dark:border-gray-700 rounded-lg p-2"
       >
         <div
           v-for="item in searchResults"
@@ -336,10 +330,10 @@ onMounted(loadFeed);
                 ? `/categories/${item.slug}`
                 : `/post/${item.id}`
             "
-            class="block p-2 hover:bg-gray-50 rounded text-gray-700"
+            class="block p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded text-gray-700 dark:text-gray-300"
           >
             {{ item.title }}
-            <span class="text-xs text-primary"
+            <span class="text-xs text-primary dark:text-accent-400"
               >({{ item.type === "category" ? "Категория" : "Пост" }})</span
             >
           </NuxtLink>
@@ -347,12 +341,15 @@ onMounted(loadFeed);
       </div>
     </div>
 
-    <div v-if="searchLoading" class="text-center py-4 text-gray-500">
+    <div
+      v-if="searchLoading"
+      class="text-center py-4 text-gray-500 dark:text-gray-400"
+    >
       Поиск...
     </div>
 
     <div v-else-if="searchQuery && searchPosts.length > 0" class="mt-6">
-      <h2 class="text-xl font-semibold mb-4">
+      <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
         Результаты поиска: "{{ searchQuery }}"
       </h2>
       <div
@@ -366,11 +363,10 @@ onMounted(loadFeed);
           @favorite="handleFavorite"
         />
       </div>
-      <!-- Кнопка загрузить ещё для поиска -->
       <div v-if="searchHasMore" class="text-center my-8">
         <button
           @click="loadMoreSearch"
-          class="px-6 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 transition shadow-sm"
+          class="px-6 py-2 bg-accent hover:bg-accent-dark dark:bg-accent-600 dark:hover:bg-accent-700 text-white rounded-lg transition shadow-sm"
         >
           Загрузить ещё
         </button>
@@ -379,7 +375,7 @@ onMounted(loadFeed);
 
     <div
       v-else-if="searchQuery && !searchLoading && searchPosts.length === 0"
-      class="text-center py-10 text-gray-500"
+      class="text-center py-10 text-gray-500 dark:text-gray-400"
     >
       Ничего не найдено по запросу "{{ searchQuery }}"
     </div>
@@ -388,12 +384,12 @@ onMounted(loadFeed);
       <!-- Скелетон загрузки -->
       <div v-if="loading" class="space-y-6">
         <div v-for="i in 3" :key="i" class="animate-pulse">
-          <div class="h-7 w-48 bg-gray-200 rounded mb-3"></div>
+          <div class="h-7 w-48 bg-gray-200 dark:bg-gray-700 rounded mb-3"></div>
           <div class="flex gap-4 overflow-hidden">
             <div
               v-for="j in 4"
               :key="j"
-              class="w-[250px] h-36 bg-gray-200 rounded"
+              class="w-[250px] h-36 bg-gray-200 dark:bg-gray-700 rounded"
             ></div>
           </div>
         </div>
@@ -410,7 +406,7 @@ onMounted(loadFeed);
           @favorite="handleFavorite"
         />
 
-        <!-- Категории (только видимые) -->
+        <!-- Категории -->
         <CategoryRow
           v-for="item in visibleCategories"
           :key="item.category.id"
@@ -425,16 +421,16 @@ onMounted(loadFeed);
         <div v-if="hasMore" class="text-center my-8">
           <button
             @click="loadMore"
-            class="px-6 py-2 bg-secondary text-white rounded-lg hover:bg-secondary/80 transition shadow-sm"
+            class="px-6 py-2 bg-secondary hover:bg-secondary/80 dark:bg-accent-600 dark:hover:bg-accent-700 text-white rounded-lg transition shadow-sm"
           >
             Загрузить ещё
           </button>
         </div>
 
-        <!-- Сообщение о конце контента (появляется после загрузки всех категорий) -->
+        <!-- Сообщение о конце контента -->
         <div
           v-if="!hasMore && allCategories.length > 0"
-          class="text-center my-8 text-gray-500"
+          class="text-center my-8 text-gray-500 dark:text-gray-400"
         >
           Контента больше нет
         </div>

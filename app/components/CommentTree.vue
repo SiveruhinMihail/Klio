@@ -126,6 +126,7 @@ function formatDate(date: string) {
         <img
           v-if="comment.user?.avatar"
           :src="comment.user.avatar"
+          loading="lazy"
           class="w-8 h-8 rounded-full object-cover"
         />
         <div class="flex-1">

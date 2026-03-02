@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 export default defineEventHandler(async (event) => {
   try {
-    const { postId } = await readBody(event);
+    const { postId, reason } = await readBody(event);
     if (!postId)
       throw createError({ statusCode: 400, message: "Missing postId" });
 
@@ -25,7 +25,10 @@ export default defineEventHandler(async (event) => {
 
     const { error } = await serviceSupabase
       .from("post")
-      .update({ moderation_status: "rejected" })
+      .update({
+        moderation_status: "rejected",
+        rejection_reason: reason || null,
+      })
       .eq("id", postId);
 
     if (error) throw createError({ statusCode: 500, message: error.message });

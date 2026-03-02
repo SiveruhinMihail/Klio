@@ -1,29 +1,38 @@
 <template>
   <div class="container mx-auto px-4 py-6 max-w-4xl">
-    <div v-if="loading" class="text-center py-10">Загрузка...</div>
-    <div v-else-if="!community" class="text-center py-10 text-gray-500">
+    <div
+      v-if="loading"
+      class="text-center py-10 text-gray-500 dark:text-gray-400"
+    >
+      Загрузка...
+    </div>
+    <div
+      v-else-if="!community"
+      class="text-center py-10 text-gray-500 dark:text-gray-400"
+    >
       Сообщество не найдено
     </div>
     <div v-else>
-      <!-- Шапка сообщества (без изменений) -->
+      <!-- Шапка сообщества -->
       <div class="flex items-start gap-4 mb-6">
         <img
-          :src="community.avatar || '/default-community.png'"
-          class="w-20 h-20 rounded-full object-cover border border-primary/20"
+          :src="community.avatar || defaultAvatar"
+          class="w-20 h-20 rounded-full object-cover border border-primary/20 dark:border-gray-700"
           alt=""
+          loading="lazy"
         />
         <div class="flex-1">
-          <h1 class="text-3xl font-bold text-gray-800">
+          <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
             {{ community.name }}
           </h1>
           <div class="flex flex-wrap items-center gap-2 mt-2">
             <CheckBadgeIcon
               v-if="community.patent"
-              class="w-6 h-6 text-accent"
+              class="w-6 h-6 text-accent dark:text-accent-400"
               title="Проверенное сообщество"
             />
             <span
-              class="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm"
+              class="bg-primary/10 dark:bg-gray-700 text-primary dark:text-accent-400 px-3 py-1 rounded-full text-sm"
             >
               ⭐ {{ community.rating }}
             </span>
@@ -33,16 +42,19 @@
           <NuxtLink
             v-if="canEdit"
             :to="`/communities/edit/${community.id}`"
-            class="px-4 py-2 border border-primary/30 rounded-lg text-primary hover:bg-primary/5 transition"
+            class="px-4 py-2 border border-primary/30 dark:border-gray-600 rounded-lg text-primary dark:text-accent-400 hover:bg-primary/5 dark:hover:bg-gray-800 transition"
           >
             Редактировать
           </NuxtLink>
-          <div v-if="userRole === 'pending'" class="px-4 py-2 text-gray-500">
+          <div
+            v-if="userRole === 'pending'"
+            class="px-4 py-2 text-gray-500 dark:text-gray-400"
+          >
             Заявка отправлена
           </div>
           <button
             v-if="!isMember && userRole !== 'pending'"
-            class="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition shadow-sm"
+            class="px-4 py-2 bg-accent hover:bg-accent-dark dark:bg-accent-600 dark:hover:bg-accent-700 text-white rounded-lg transition shadow-sm"
             @click="joinCommunity"
           >
             Вступить
@@ -51,7 +63,7 @@
             v-if="isAuthenticated && !isOwner"
             @click="openReportModal"
             :disabled="hasReportedCommunity"
-            class="px-4 py-2 border border-primary/30 rounded-lg text-primary hover:bg-primary/5 transition flex items-center gap-2"
+            class="px-4 py-2 border border-primary/30 dark:border-gray-600 rounded-lg text-primary dark:text-accent-400 hover:bg-primary/5 dark:hover:bg-gray-800 transition flex items-center gap-2"
             :title="
               hasReportedCommunity
                 ? 'Вы уже отправили жалобу'
@@ -59,7 +71,11 @@
             "
           >
             <FlagIcon
-              :class="[hasReportedCommunity ? 'text-primary fill-primary' : '']"
+              :class="[
+                hasReportedCommunity
+                  ? 'text-primary fill-primary dark:text-accent-400'
+                  : '',
+              ]"
               class="w-5 h-5"
             />
             <span>Пожаловаться</span>
@@ -68,13 +84,13 @@
       </div>
 
       <!-- Вкладки -->
-      <div class="border-b border-primary/10 mb-6">
+      <div class="border-b border-primary/10 dark:border-gray-700 mb-6">
         <button
           :class="[
             'px-4 py-2 text-sm font-medium transition-colors',
             tab === 'about'
-              ? 'text-accent border-b-2 border-accent'
-              : 'text-gray-600 hover:text-accent',
+              ? 'text-accent border-b-2 border-accent dark:text-accent-400 dark:border-accent-400'
+              : 'text-gray-600 dark:text-gray-400 hover:text-accent dark:hover:text-accent-400',
           ]"
           @click="tab = 'about'"
         >
@@ -84,8 +100,8 @@
           :class="[
             'px-4 py-2 text-sm font-medium transition-colors',
             tab === 'members'
-              ? 'text-accent border-b-2 border-accent'
-              : 'text-gray-600 hover:text-accent',
+              ? 'text-accent border-b-2 border-accent dark:text-accent-400 dark:border-accent-400'
+              : 'text-gray-600 dark:text-gray-400 hover:text-accent dark:hover:text-accent-400',
           ]"
           @click="tab = 'members'"
         >
@@ -96,8 +112,8 @@
           :class="[
             'px-4 py-2 text-sm font-medium transition-colors',
             tab === 'requests'
-              ? 'text-accent border-b-2 border-accent'
-              : 'text-gray-600 hover:text-accent',
+              ? 'text-accent border-b-2 border-accent dark:text-accent-400 dark:border-accent-400'
+              : 'text-gray-600 dark:text-gray-400 hover:text-accent dark:hover:text-accent-400',
           ]"
           @click="tab = 'requests'"
         >
@@ -108,8 +124,8 @@
           :class="[
             'px-4 py-2 text-sm font-medium transition-colors',
             tab === 'chat'
-              ? 'text-accent border-b-2 border-accent'
-              : 'text-gray-600 hover:text-accent',
+              ? 'text-accent border-b-2 border-accent dark:text-accent-400 dark:border-accent-400'
+              : 'text-gray-600 dark:text-gray-400 hover:text-accent dark:hover:text-accent-400',
           ]"
           @click="tab = 'chat'"
         >
@@ -120,8 +136,8 @@
           :class="[
             'px-4 py-2 text-sm font-medium transition-colors',
             tab === 'activity'
-              ? 'text-accent border-b-2 border-accent'
-              : 'text-gray-600 hover:text-accent',
+              ? 'text-accent border-b-2 border-accent dark:text-accent-400 dark:border-accent-400'
+              : 'text-gray-600 dark:text-gray-400 hover:text-accent dark:hover:text-accent-400',
           ]"
           @click="tab = 'activity'"
         >
@@ -130,62 +146,72 @@
       </div>
 
       <!-- Вкладка "О сообществе" -->
-      <div v-if="tab === 'about'" class="prose max-w-none">
+      <div v-if="tab === 'about'" class="prose max-w-none dark:prose-invert">
         <div
           v-if="community.renderedDescription"
           v-html="community.renderedDescription"
         />
-        <p v-else class="text-gray-500">Нет описания.</p>
+        <p v-else class="text-gray-500 dark:text-gray-400">Нет описания.</p>
       </div>
 
       <!-- Вкладка "Участники" -->
       <div v-if="tab === 'members'" class="space-y-6">
         <div>
-          <h3 class="font-semibold mb-2 text-gray-700">Администраторы</h3>
+          <h3 class="font-semibold mb-2 text-gray-700 dark:text-gray-300">
+            Администраторы
+          </h3>
           <div class="space-y-2">
             <div
               v-for="m in admins"
               :key="m.user.id"
-              class="flex items-center gap-3 p-3 border border-primary/10 rounded-lg hover:bg-primary/5 transition"
+              class="flex items-center gap-3 p-3 border border-primary/10 dark:border-gray-700 rounded-lg hover:bg-primary/5 dark:hover:bg-gray-800 transition"
             >
               <img
-                :src="m.user.avatar || '/default-avatar.png'"
+                :src="m.user.avatar || defaultAvatar"
                 class="w-8 h-8 rounded-full object-cover"
                 alt=""
+                loading="lazy"
               />
               <NuxtLink
                 :to="`/profile/${m.user.auth_uid}`"
-                class="flex-1 text-sm text-gray-700 hover:text-accent transition"
+                class="flex-1 text-sm text-gray-700 dark:text-gray-300 hover:text-accent dark:hover:text-accent-400 transition"
               >
                 <div class="font-medium">
                   {{ m.user.use || m.user.username }}
                 </div>
-                <div class="text-xs text-gray-500">@{{ m.user.username }}</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">
+                  @{{ m.user.username }}
+                </div>
               </NuxtLink>
             </div>
           </div>
         </div>
         <div>
-          <h3 class="font-semibold mb-2 text-gray-700">Участники</h3>
+          <h3 class="font-semibold mb-2 text-gray-700 dark:text-gray-300">
+            Участники
+          </h3>
           <div class="space-y-2">
             <div
               v-for="m in members"
               :key="m.user.id"
-              class="flex items-center gap-3 p-3 border border-primary/10 rounded-lg hover:bg-primary/5 transition"
+              class="flex items-center gap-3 p-3 border border-primary/10 dark:border-gray-700 rounded-lg hover:bg-primary/5 dark:hover:bg-gray-800 transition"
             >
               <img
-                :src="m.user.avatar || '/default-avatar.png'"
+                :src="m.user.avatar || defaultAvatar"
                 class="w-8 h-8 rounded-full object-cover"
                 alt=""
+                loading="lazy"
               />
               <NuxtLink
                 :to="`/profile/${m.user.auth_uid}`"
-                class="flex-1 text-sm text-gray-700 hover:text-accent transition"
+                class="flex-1 text-sm text-gray-700 dark:text-gray-300 hover:text-accent dark:hover:text-accent-400 transition"
               >
                 <div class="font-medium">
                   {{ m.user.use || m.user.username }}
                 </div>
-                <div class="text-xs text-gray-500">@{{ m.user.username }}</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">
+                  @{{ m.user.username }}
+                </div>
               </NuxtLink>
             </div>
           </div>
@@ -194,38 +220,46 @@
 
       <!-- Вкладка "Заявки" (только админ) -->
       <div v-if="tab === 'requests' && userRole === 'admin'" class="space-y-2">
-        <h3 class="font-semibold mb-2 text-gray-700">Заявки на вступление</h3>
-        <div v-if="pendingMembers.length === 0" class="text-gray-500">
+        <h3 class="font-semibold mb-2 text-gray-700 dark:text-gray-300">
+          Заявки на вступление
+        </h3>
+        <div
+          v-if="pendingMembers.length === 0"
+          class="text-gray-500 dark:text-gray-400"
+        >
           Нет новых заявок.
         </div>
         <div v-else class="space-y-2">
           <div
             v-for="m in pendingMembers"
             :key="m.user.id"
-            class="flex items-center gap-3 p-3 border border-primary/10 rounded-lg"
+            class="flex items-center gap-3 p-3 border border-primary/10 dark:border-gray-700 rounded-lg"
           >
             <img
-              :src="m.user.avatar || '/default-avatar.png'"
+              :src="m.user.avatar || defaultAvatar"
               class="w-8 h-8 rounded-full object-cover"
               alt=""
+              loading="lazy"
             />
             <NuxtLink
               :to="`/profile/${m.user.auth_uid}`"
-              class="flex-1 text-sm text-gray-700 hover:text-accent transition"
+              class="flex-1 text-sm text-gray-700 dark:text-gray-300 hover:text-accent dark:hover:text-accent-400 transition"
             >
               <div class="font-medium">{{ m.user.use || m.user.username }}</div>
-              <div class="text-xs text-gray-500">@{{ m.user.username }}</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400">
+                @{{ m.user.username }}
+              </div>
             </NuxtLink>
             <div class="flex gap-1">
               <button
-                class="w-8 h-8 flex items-center justify-center text-green-600 hover:bg-green-50 rounded-full"
+                class="w-8 h-8 flex items-center justify-center text-green-600 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/30 rounded-full"
                 title="Одобрить"
                 @click="approveMember(m.user.id)"
               >
                 ✓
               </button>
               <button
-                class="w-8 h-8 flex items-center justify-center text-red-600 hover:bg-red-50 rounded-full"
+                class="w-8 h-8 flex items-center justify-center text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 rounded-full"
                 title="Отклонить"
                 @click="rejectMember(m.user.id)"
               >
@@ -240,14 +274,14 @@
       <div v-if="tab === 'chat' && isMember">
         <div
           ref="chatContainer"
-          class="h-96 overflow-y-auto border border-primary/10 rounded-lg p-4 mb-3 bg-white"
+          class="h-96 overflow-y-auto border border-primary/10 dark:border-gray-700 rounded-lg p-4 mb-3 bg-white dark:bg-gray-800"
         >
           <div v-for="msg in messages" :key="msg.id" class="mb-2">
-            <span class="font-semibold text-gray-800"
+            <span class="font-semibold text-gray-800 dark:text-white"
               >{{ msg.user.username }}:</span
             >
-            <span class="text-gray-700">{{ msg.text }}</span>
-            <span class="text-xs text-gray-400 ml-2">{{
+            <span class="text-gray-700 dark:text-gray-300">{{ msg.text }}</span>
+            <span class="text-xs text-gray-400 dark:text-gray-500 ml-2">{{
               formatDate(msg.created_at)
             }}</span>
           </div>
@@ -256,12 +290,12 @@
           <input
             v-model="newMessage"
             type="text"
-            class="flex-1 px-4 py-2 border border-primary/20 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition"
+            class="flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-primary/20 dark:border-gray-700 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition text-gray-900 dark:text-gray-100"
             placeholder="Сообщение..."
             @keyup.enter="sendMessage"
           />
           <button
-            class="px-5 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition shadow-sm"
+            class="px-5 py-2 bg-accent hover:bg-accent-dark dark:bg-accent-600 dark:hover:bg-accent-700 text-white rounded-lg transition shadow-sm"
             @click="sendMessage"
           >
             Отправить
@@ -271,29 +305,42 @@
 
       <!-- Вкладка "Активность" (для участников) -->
       <div v-if="tab === 'activity' && isMember" key="activity">
-        <div v-if="activityLoading" class="text-center py-4">Загрузка...</div>
+        <div
+          v-if="activityLoading"
+          class="text-center py-4 text-gray-500 dark:text-gray-400"
+        >
+          Загрузка...
+        </div>
         <div v-else>
           <div class="grid grid-cols-2 gap-4 mb-6">
             <div
-              class="bg-white border border-primary/10 rounded-lg p-4 text-center"
+              class="bg-white dark:bg-gray-800 border border-primary/10 dark:border-gray-700 rounded-lg p-4 text-center"
             >
-              <div class="text-2xl font-bold text-accent">
+              <div class="text-2xl font-bold text-accent dark:text-accent-400">
                 {{ stats.membersCount }}
               </div>
-              <div class="text-sm text-primary">Участников</div>
+              <div class="text-sm text-primary dark:text-accent-400">
+                Участников
+              </div>
             </div>
             <div
-              class="bg-white border border-primary/10 rounded-lg p-4 text-center"
+              class="bg-white dark:bg-gray-800 border border-primary/10 dark:border-gray-700 rounded-lg p-4 text-center"
             >
-              <div class="text-2xl font-bold text-accent">
+              <div class="text-2xl font-bold text-accent dark:text-accent-400">
                 {{ stats.messagesCount }}
               </div>
-              <div class="text-sm text-primary">Сообщений в чате</div>
+              <div class="text-sm text-primary dark:text-accent-400">
+                Сообщений в чате
+              </div>
             </div>
           </div>
           <!-- График изменения рейтинга за 30 дней -->
-          <div class="bg-white border border-primary/10 rounded-lg p-4">
-            <h3 class="text-lg font-semibold mb-4 text-gray-800">
+          <div
+            class="bg-white dark:bg-gray-800 border border-primary/10 dark:border-gray-700 rounded-lg p-4"
+          >
+            <h3
+              class="text-lg font-semibold mb-4 text-gray-800 dark:text-white"
+            >
               Изменение рейтинга за последние 30 дней
             </h3>
             <CommunityRatingChart :community="community" />
@@ -301,7 +348,7 @@
           <div v-if="canRequest" class="mt-2">
             <button
               @click="openVerificationModal"
-              class="px-3 py-1 bg-accent text-white rounded-lg text-sm"
+              class="px-3 py-1 bg-accent hover:bg-accent-dark dark:bg-accent-600 dark:hover:bg-accent-700 text-white rounded-lg text-sm"
             >
               Запросить галочку
             </button>
@@ -312,18 +359,21 @@
           >
             <button
               @click="openNameChangeModal"
-              class="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition"
+              class="px-4 py-2 bg-accent hover:bg-accent-dark dark:bg-accent-600 dark:hover:bg-accent-700 text-white rounded-lg transition"
             >
               Запросить смену названия
             </button>
           </div>
           <div
             v-else-if="isOwner && community.patent && hasActiveNameRequest"
-            class="mt-4 text-sm text-gray-500"
+            class="mt-4 text-sm text-gray-500 dark:text-gray-400"
           >
             ✓ Заявка на смену названия отправлена
           </div>
-          <div v-else-if="hasPendingRequest" class="mt-2 text-sm text-gray-500">
+          <div
+            v-else-if="hasPendingRequest"
+            class="mt-2 text-sm text-gray-500 dark:text-gray-400"
+          >
             Заявка на галочку отправлена
           </div>
         </div>
@@ -342,27 +392,29 @@
         v-if="nameChangeModalOpen"
         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
       >
-        <div class="bg-white rounded-lg p-6 max-w-md w-full">
-          <h3 class="text-lg font-medium mb-4">Запрос на смену названия</h3>
-          <p class="text-sm text-gray-500 mb-2">
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+          <h3 class="text-lg font-medium mb-4 text-gray-900 dark:text-white">
+            Запрос на смену названия
+          </h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">
             Введите новое название для сообщества
           </p>
           <input
             v-model="newName"
             type="text"
-            class="w-full px-4 py-2 border border-primary/20 rounded-lg mb-4"
+            class="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-primary/20 dark:border-gray-700 rounded-lg mb-4 text-gray-900 dark:text-gray-100"
             placeholder="Новое название"
           />
           <div class="flex justify-end gap-2">
             <button
               @click="nameChangeModalOpen = false"
-              class="px-4 py-2 text-gray-600"
+              class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
             >
               Отмена
             </button>
             <button
               @click="submitNameChange"
-              class="px-4 py-2 bg-accent text-white rounded-lg"
+              class="px-4 py-2 bg-accent hover:bg-accent-dark dark:bg-accent-600 dark:hover:bg-accent-700 text-white rounded-lg"
             >
               Отправить
             </button>
@@ -402,6 +454,8 @@ const {
 } = useCommunity();
 
 const md = new MarkdownIt();
+const defaultAvatar =
+  "https://phlyzwfqtpddvgrprngo.supabase.co/storage/v1/object/public/avatars/default.jpg";
 
 const tab = ref((route.query.tab as string) || "about");
 const community = ref<any>(null);
@@ -570,7 +624,7 @@ const sendMessage = async () => {
   }
 };
 
-// Загрузка статистики активности (без графика, только цифры)
+// Загрузка статистики активности
 async function loadActivity() {
   if (!community.value) return;
   const communityId = Number(route.params.id);

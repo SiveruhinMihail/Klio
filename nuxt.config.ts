@@ -9,14 +9,33 @@ export default defineNuxtConfig({
     "@nuxtjs/color-mode",
     "@vueuse/nuxt",
   ],
+  nitro: {
+    prerender: {
+      routes: ["/", "/categories", "/communities"],
+    },
+    preset: 'github_pages',
+  },
+  routeRules: {
+    '/**': { prerender: true }
+  },
 
   app: {
+    baseURL: '/Klio/',
+    buildAssetsDir: '/nuxt_assets/',
     head: {
       link: [
         {
           rel: "stylesheet",
           href: "https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css",
         },
+        {
+          rel: "preload",
+          href: "/fonts/FiraMono-Regular.ttf",
+          as: "font",
+          type: "font/ttf",
+          crossorigin: "",
+        },
+        { rel: "preconnect", href: "https://phlyzwfqtpddvgrprngo.supabase.co" },
       ],
       script: [
         {

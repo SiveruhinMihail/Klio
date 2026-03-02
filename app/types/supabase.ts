@@ -502,6 +502,7 @@ export type Database = {
           description: string | null
           id: number
           image: string | null
+          moderation_comment: string | null
           moderation_status: string | null
           rating: number | null
           status: string | null
@@ -513,6 +514,7 @@ export type Database = {
           description?: string | null
           id?: number
           image?: string | null
+          moderation_comment?: string | null
           moderation_status?: string | null
           rating?: number | null
           status?: string | null
@@ -524,6 +526,7 @@ export type Database = {
           description?: string | null
           id?: number
           image?: string | null
+          moderation_comment?: string | null
           moderation_status?: string | null
           rating?: number | null
           status?: string | null

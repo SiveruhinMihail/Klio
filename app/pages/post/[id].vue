@@ -1,25 +1,35 @@
 <template>
   <div class="container mx-auto px-4 py-6 max-w-4xl">
-    <div v-if="loading" class="text-center py-10">Загрузка...</div>
-    <div v-else-if="!post" class="text-center py-10 text-gray-500">
+    <div
+      v-if="pending"
+      class="text-center py-10 text-gray-500 dark:text-gray-400"
+    >
+      Загрузка...
+    </div>
+    <div
+      v-else-if="!post"
+      class="text-center py-10 text-gray-500 dark:text-gray-400"
+    >
       Пост не найден
     </div>
     <div v-else>
       <!-- Шапка поста -->
       <div class="mb-6">
-        <h1 class="text-3xl font-bold text-gray-800 mb-2">{{ post.title }}</h1>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+          {{ post.title }}
+        </h1>
 
-        <!-- Мета-информация: автор, дата, действия -->
         <div class="flex flex-wrap items-center justify-between gap-4 text-sm">
-          <div class="flex items-center gap-3 text-gray-600">
+          <div class="flex items-center gap-3 text-gray-600 dark:text-gray-400">
             <NuxtLink
               :to="`/profile/${post.author?.auth_uid}`"
-              class="flex items-center gap-2 hover:text-accent transition"
+              class="flex items-center gap-2 hover:text-accent dark:hover:text-accent-400 transition"
             >
               <img
-                :src="post.author?.avatar || '/default-avatar.png'"
+                :src="getAvatarUrl(post.author?.avatar as string, 24)"
                 class="w-6 h-6 rounded-full object-cover"
                 alt=""
+                loading="lazy"
               />
               <span class="font-medium">{{ post.author?.use || "Автор" }}</span>
             </NuxtLink>
@@ -27,33 +37,45 @@
             <span>{{ formatDate(post.created_at) }}</span>
           </div>
 
-          <!-- Кнопки действий (только если пост одобрен) -->
+          <!-- Кнопки действий -->
           <div v-if="isPostActive" class="flex items-center gap-4">
             <button
               @click="toggleLike"
               :disabled="!isAuthenticated"
-              class="flex items-center gap-1 text-gray-600 hover:text-red-500 transition"
+              class="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition"
+              title="Поставить лайк"
             >
               <HeartIcon
                 :class="[isLiked ? 'text-red-500 fill-red-500' : '']"
                 class="w-5 h-5"
               />
-              <span>{{ post.rating }}</span>
+              <span
+                class="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-0.5 rounded-full text-xs font-medium"
+              >
+                {{ postRating }}
+              </span>
             </button>
+
             <button
               @click="toggleFavoritePost"
               :disabled="!isAuthenticated"
-              class="flex items-center gap-1 text-gray-600 hover:text-yellow-500 transition"
+              class="flex items-center gap-1 text-gray-600 dark:text-gray-400 hover:text-yellow-500 dark:hover:text-yellow-400 transition"
+              :title="
+                isFavoritedState ? 'Убрать из закладок' : 'Добавить в закладки'
+              "
             >
               <BookmarkIcon
-                :class="[isFavorited ? 'text-yellow-500 fill-yellow-500' : '']"
+                :class="[
+                  isFavoritedState ? 'text-yellow-500 fill-yellow-500' : '',
+                ]"
                 class="w-5 h-5"
               />
             </button>
+
             <button
               @click="openReportModal('post', post.id)"
               :disabled="!isAuthenticated || hasReportedPost"
-              class="flex items-center gap-1 text-gray-600 hover:text-primary disabled:opacity-50"
+              class="flex items-center gap-1 text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-accent-400 disabled:opacity-50"
               :title="
                 hasReportedPost ? 'Вы уже отправили жалобу' : 'Пожаловаться'
               "
@@ -66,12 +88,19 @@
           </div>
 
           <!-- Баннер для неодобренных постов -->
-          <div v-else class="text-sm text-orange-600">
-            {{
-              post.moderation_status === "pending"
-                ? "Пост на проверке. Взаимодействие недоступно."
-                : "Пост отклонён модератором."
-            }}
+          <div v-else class="text-sm text-orange-600 dark:text-orange-400">
+            <p v-if="post.moderation_status === 'pending'">
+              Пост на проверке. Взаимодействие недоступно.
+            </p>
+            <div v-else-if="post.moderation_status === 'rejected'">
+              <p>Пост отклонён модератором.</p>
+              <p
+                v-if="post.moderation_comment"
+                class="mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-800 dark:text-red-300"
+              >
+                {{ post.moderation_comment }}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -81,7 +110,7 @@
             v-for="cat in postCategories"
             :key="cat.id"
             :to="`/categories/${cat.slug}`"
-            class="px-3 py-1 bg-accent/20 text-accent-dark rounded-full text-sm hover:bg-accent/30 transition"
+            class="px-3 py-1 bg-accent/20 dark:bg-accent/30 text-accent-dark dark:text-accent-400 rounded-full text-sm hover:bg-accent/30 dark:hover:bg-accent/40 transition"
           >
             {{ cat.name }}
           </NuxtLink>
@@ -94,28 +123,40 @@
           <div
             v-for="(img, index) in post.post_images"
             :key="index"
-            class="aspect-square bg-primary/5 rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition"
-            @click="openImageViewer(postImages, index as number)"
+            class="aspect-square bg-primary/5 dark:bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition"
+            @click="openImageViewer(postImages, index)"
           >
-            <img :src="img.url" class="w-full h-full object-cover" alt="" />
+            <img
+              :src="getOptimizedImageUrl(img.url, 400, 400)"
+              class="w-full h-full object-cover"
+              alt=""
+              loading="lazy"
+            />
           </div>
         </div>
       </div>
 
       <!-- Описание поста -->
       <div
-        class="prose prose-lg max-w-none mb-8"
+        class="prose prose-lg max-w-none dark:prose-invert mb-8"
         v-html="renderedDescription"
       ></div>
 
       <!-- Комментарии -->
-      <div class="border-t border-primary/10 pt-6" id="comments">
-        <h2 class="text-2xl font-semibold mb-4 flex items-center gap-2">
-          <ChatBubbleLeftIcon class="w-6 h-6 text-primary" />
+      <div
+        class="border-t border-primary/10 dark:border-gray-700 pt-6"
+        id="comments"
+      >
+        <h2
+          class="text-2xl font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white"
+        >
+          <ChatBubbleLeftIcon
+            class="w-6 h-6 text-primary dark:text-accent-400"
+          />
           Комментарии ({{ totalComments }})
         </h2>
 
-        <!-- Форма комментария (только если пост одобрен) -->
+        <!-- Форма комментария -->
         <CommentForm
           v-if="isAuthenticated && isPostActive"
           :post-id="post.id"
@@ -127,37 +168,51 @@
         />
         <div
           v-else-if="!isAuthenticated && isPostActive"
-          class="mb-6 text-center text-gray-500"
+          class="mb-6 text-center text-gray-500 dark:text-gray-400"
         >
-          <NuxtLink to="/auth/login" class="text-accent hover:underline"
+          <NuxtLink
+            to="/auth/login"
+            class="text-accent hover:underline dark:text-accent-400"
             >Войдите</NuxtLink
           >, чтобы оставить комментарий.
         </div>
 
-        <!-- Список комментариев (отображаются всегда, но без интерактива, если пост не одобрен) -->
+        <!-- Список комментариев с v-memo -->
         <div
           v-if="commentTree.length === 0"
-          class="text-gray-500 text-center py-4"
+          class="text-gray-500 dark:text-gray-400 text-center py-4"
         >
           Пока нет комментариев. Будьте первым!
         </div>
         <div v-else class="space-y-4">
-          <CommentItem
+          <div
             v-for="comment in commentTree"
             :key="comment.id"
-            :comment="comment"
-            :is-authenticated="isAuthenticated"
-            :interactive="isPostActive"
-            @like="toggleCommentLike"
-            @reply="startReply"
-            @report="reportComment"
-            @open-image="openImageViewer"
-          />
+            v-memo="[
+              comment.likes_count,
+              comment.liked,
+              comment.reported,
+              comment.children?.length,
+            ]"
+          >
+            <CommentItem
+              :comment="comment"
+              :is-authenticated="isAuthenticated"
+              :interactive="isPostActive"
+              @like="toggleCommentLike"
+              @reply="startReply"
+              @report="reportComment"
+              @open-image="openImageViewer"
+            />
+          </div>
         </div>
 
         <!-- Кнопка загрузить ещё комментарии -->
         <div v-if="hasMoreComments" class="text-center mt-4">
-          <button @click="loadMoreComments" class="text-accent hover:underline">
+          <button
+            @click="loadMoreComments"
+            class="text-accent hover:underline dark:text-accent-400"
+          >
             Загрузить ещё комментарии
           </button>
         </div>
@@ -173,7 +228,6 @@
       @close="reportModalTarget = null"
       @submitted="handleReportSubmitted"
     />
-
     <ImageViewer
       v-if="showViewer"
       :images="viewerImages"
@@ -184,7 +238,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import {
   HeartIcon,
   BookmarkIcon,
@@ -197,20 +251,54 @@ import CommentForm from "~/components/CommentForm.vue";
 import CommentItem from "~/components/CommentItem.vue";
 import ImageViewer from "~/components/ImageViewer.vue";
 import ReportModal from "~/components/ReportModal.vue";
+import { useReactionState } from "~/composables/useReactionState";
+import { useFavorites } from "~/composables/useFavorites";
+import { getOptimizedImageUrl, getAvatarUrl } from "~/utils/image";
 
 const supabase = useSupabaseClient<Database>();
 const route = useRoute();
 const { isAuthenticated, userId } = useAuth();
-const { toggleFavorite, isFavorite } = useFavorites();
+const { isFavorite } = useFavorites();
+
+const {
+  getLikeState,
+  isFavorited,
+  toggleLike: globalToggleLike,
+  toggleFavorite: globalToggleFavorite,
+  initPostReactions,
+} = useReactionState();
 
 const md = new MarkdownIt();
 
-const loading = ref(true);
-const post = ref<any>(null);
+// Загрузка поста с кэшированием
+const {
+  data: post,
+  refresh,
+  pending,
+} = useAsyncData(
+  `post-${route.params.id}`,
+  async () => {
+    const id = route.params.id;
+    const numericId = typeof id === "string" ? parseInt(id, 10) : -1;
+    if (isNaN(numericId)) return null;
+
+    const { data, error } = await supabase
+      .from("post")
+      .select(
+        "*, author:user!author_id(*), post_images (*), likes:like_to_post(count)",
+      )
+      .eq("id", numericId)
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  {
+    default: () => null,
+  },
+);
+
 const comments = ref<any[]>([]);
 const totalComments = ref(0);
-const isLiked = ref(false);
-const isFavorited = ref(false);
 const replyToCommentId = ref<number | null>(null);
 const replyToUsername = ref<string | null>(null);
 const hasReportedPost = ref(false);
@@ -240,7 +328,13 @@ const commentsOffset = ref(0);
 const hasMoreComments = ref(true);
 const commentTree = ref<any[]>([]);
 
-// Построение дерева комментариев с сортировкой по лайкам и дате
+// Вычисляемые значения из глобального состояния
+const likeState = computed(() => getLikeState(post.value?.id as number));
+const isLiked = computed(() => likeState.value.liked);
+const postRating = computed(() => likeState.value.count);
+const isFavoritedState = computed(() => isFavorited(post.value?.id as number));
+
+// Построение дерева комментариев
 function buildCommentTree() {
   const map = new Map();
   comments.value.forEach((c) => {
@@ -264,70 +358,64 @@ function buildCommentTree() {
   commentTree.value = roots;
 }
 
-// Загрузка поста
-const loadPost = async () => {
-  const id = route.params.id;
-  const numericId = typeof id === "string" ? parseInt(id, 10) : -1;
-  if (isNaN(numericId)) return;
+// Загрузка категорий и инициализация после получения поста
+watch(
+  post,
+  async () => {
+    if (!post.value) return;
 
-  // Пост + автор + изображения + лайки
-  const { data: postData, error: postError } = await supabase
-    .from("post")
-    .select(
-      "*, author:user!author_id(*), post_images (*), likes:like_to_post(count)",
-    )
-    .eq("id", numericId)
-    .single();
-  if (postError) throw postError;
-  post.value = postData;
-  post.value.rating = postData.likes?.[0]?.count || 0;
+    const numericId = post.value.id;
 
-  // Категории поста
-  const { data: categoriesData } = await supabase
-    .from("post_categories")
-    .select("category_id, category:category_id(id, name, slug)")
-    .eq("post_id", numericId);
-  if (categoriesData) {
-    postCategories.value = categoriesData.map((item) => item.category);
-  }
+    // Категории поста
+    const { data: categoriesData } = await supabase
+      .from("post_categories")
+      .select("category_id, category:category_id(id, name, slug)")
+      .eq("post_id", numericId);
+    if (categoriesData) {
+      postCategories.value = categoriesData.map((item) => item.category);
+    }
 
-  // Проверка жалобы на пост
-  if (isAuthenticated.value && userId.value) {
-    const { data: report } = await supabase
-      .from("reports")
-      .select("id")
-      .eq("target_type", "post")
-      .eq("target_id", numericId)
-      .eq("reporter_id", userId.value)
-      .maybeSingle();
-    hasReportedPost.value = !!report;
-  }
+    // Проверка жалобы на пост
+    if (isAuthenticated.value && userId.value) {
+      const { data: report } = await supabase
+        .from("reports")
+        .select("id")
+        .eq("target_type", "post")
+        .eq("target_id", numericId)
+        .eq("reporter_id", userId.value)
+        .maybeSingle();
+      hasReportedPost.value = !!report;
+    }
 
-  // Общее количество комментариев
-  const { count } = await supabase
-    .from("comments")
-    .select("*", { count: "exact", head: true })
-    .eq("post_id", numericId);
-  totalComments.value = count || 0;
+    // Общее количество комментариев
+    const { count } = await supabase
+      .from("comments")
+      .select("*", { count: "exact", head: true })
+      .eq("post_id", numericId);
+    totalComments.value = count || 0;
 
-  // Загрузка комментариев
-  await loadComments(numericId, 0);
+    // Загрузка комментариев
+    await loadComments(numericId, 0);
 
-  // Проверка лайка и избранного (только если пост одобрен)
-  if (isAuthenticated.value && userId.value && isPostActive.value) {
-    const { data: likeData } = await supabase
-      .from("like_to_post")
-      .select("user_id")
-      .eq("post_id", numericId)
-      .eq("user_id", userId.value)
-      .maybeSingle();
-    isLiked.value = !!likeData;
-    isFavorited.value = await isFavorite(numericId);
-  } else {
-    isLiked.value = false;
-    isFavorited.value = false;
-  }
-};
+    // Инициализация состояния лайков и избранного
+    if (isAuthenticated.value && userId.value && isPostActive.value) {
+      const { data: likeData } = await supabase
+        .from("like_to_post")
+        .select("user_id")
+        .eq("post_id", numericId)
+        .eq("user_id", userId.value)
+        .maybeSingle();
+      const isFavoritedValue = await isFavorite(numericId);
+      initPostReactions(
+        numericId,
+        !!likeData,
+        post.value.likes?.[0]?.count || 0,
+        isFavoritedValue,
+      );
+    }
+  },
+  { immediate: true },
+);
 
 // Загрузка комментариев с пагинацией
 const loadComments = async (postId: number, offset: number) => {
@@ -336,7 +424,17 @@ const loadComments = async (postId: number, offset: number) => {
     .select(
       `
       *,
-      user:user_id(id, username, use, avatar, auth_uid, communities:subscribers(community:communities_id(id, name, patent, rating))),
+      user:user_id(
+        id, 
+        username, 
+        use, 
+        avatar, 
+        auth_uid, 
+        communities:subscribers(
+          community:communities_id(id, name, patent, rating),
+          role
+        )
+      ),
       images:comment_images(*)
     `,
     )
@@ -349,7 +447,6 @@ const loadComments = async (postId: number, offset: number) => {
   if (data) {
     let likedSet = new Set<number>();
     let reportedSet = new Set<number>();
-    // Если пост активен и пользователь авторизован, подгружаем его лайки/репорты на комментарии
     if (isAuthenticated.value && userId.value && isPostActive.value) {
       const commentIds = data.map((c) => c.id);
       if (commentIds.length) {
@@ -388,17 +485,9 @@ const loadMoreComments = () => {
   if (post.value) loadComments(post.value.id, commentsOffset.value);
 };
 
-// Real-time подписка на новые комментарии
+// Real-time подписка
 let subscription: any;
 onMounted(async () => {
-  try {
-    await loadPost();
-  } catch (e) {
-    console.error("Error loading post:", e);
-  } finally {
-    loading.value = false;
-  }
-
   const numericId = parseInt(route.params.id as string, 10);
   if (!isNaN(numericId)) {
     subscription = supabase
@@ -415,10 +504,20 @@ onMounted(async () => {
           const { data: newComment } = await supabase
             .from("comments")
             .select(
-              "*, user:user_id(*), likes:like_to_comment(count), images:comment_images(*)",
+              `*,
+              user:user_id(
+                *, 
+                communities:subscribers(
+                  community:communities_id(id, name, patent, rating),
+                  role
+                )
+              ),
+              likes:like_to_comment(count),
+              images:comment_images(*)`,
             )
             .eq("id", payload.new.id)
             .single();
+
           if (newComment) {
             let liked = false;
             let reported = false;
@@ -430,6 +529,7 @@ onMounted(async () => {
                 .eq("user_id", userId.value)
                 .maybeSingle();
               liked = !!like;
+
               const { data: report } = await supabase
                 .from("reports")
                 .select("id")
@@ -439,6 +539,7 @@ onMounted(async () => {
                 .maybeSingle();
               reported = !!report;
             }
+
             const enriched = {
               ...newComment,
               likes_count: newComment.likes?.[0]?.count || 0,
@@ -446,6 +547,7 @@ onMounted(async () => {
               reported,
               images: newComment.images || [],
             };
+
             comments.value.push(enriched);
             totalComments.value++;
             buildCommentTree();
@@ -469,51 +571,20 @@ function handleNewComment(comment: any) {
 }
 
 async function toggleLike() {
-  if (!isAuthenticated.value || !userId.value || !post.value) return;
-  if (!isPostActive.value) return;
-  const uid = userId.value;
-  const wasLiked = isLiked.value;
-  isLiked.value = !wasLiked;
-  post.value.rating += wasLiked ? -1 : 1;
+  if (!post.value) return;
   try {
-    if (wasLiked) {
-      await supabase
-        .from("like_to_post")
-        .delete()
-        .eq("post_id", post.value.id)
-        .eq("user_id", uid);
-    } else {
-      await supabase
-        .from("like_to_post")
-        .insert({ post_id: post.value.id, user_id: uid });
-    }
+    await globalToggleLike(post.value.id);
+    refresh(); // обновить данные поста в фоне
   } catch (e) {
-    isLiked.value = wasLiked;
-    post.value.rating += wasLiked ? 1 : -1;
     console.error(e);
   }
 }
 
 async function toggleFavoritePost() {
-  if (!isAuthenticated.value || !post.value || !userId.value) return;
-  if (!isPostActive.value) return;
-  const uid = userId.value;
-  const wasFavorited = isFavorited.value;
-  isFavorited.value = !wasFavorited;
+  if (!post.value) return;
   try {
-    if (wasFavorited) {
-      await supabase
-        .from("favorites")
-        .delete()
-        .eq("post_id", post.value.id)
-        .eq("user_id", uid);
-    } else {
-      await supabase
-        .from("favorites")
-        .insert({ post_id: post.value.id, user_id: uid });
-    }
+    await globalToggleFavorite(post.value.id);
   } catch (e) {
-    isFavorited.value = wasFavorited;
     console.error(e);
   }
 }
@@ -592,7 +663,8 @@ function openImageViewer(images: string[], index: number) {
   showViewer.value = true;
 }
 
-function formatDate(date: string) {
+function formatDate(date: string | null | undefined) {
+  if (!date) return "";
   return new Date(date).toLocaleDateString("ru-RU", {
     day: "numeric",
     month: "long",

@@ -2,11 +2,13 @@
   <div class="relative">
     <!-- Заголовок категории + ссылка на все записи -->
     <div class="flex items-center justify-between mb-3">
-      <h2 class="text-2xl font-semibold">{{ category.name }}</h2>
+      <h2 class="text-2xl font-semibold text-gray-900 dark:text-white">
+        {{ category.name }}
+      </h2>
       <NuxtLink
         v-if="category.slug !== 'recommended'"
         :to="`/categories/${category.slug}`"
-        class="text-primary hover:text-accent transition"
+        class="text-primary hover:text-accent dark:text-accent-400 transition"
       >
         Все записи
       </NuxtLink>
@@ -18,8 +20,9 @@
       <button
         v-if="showLeftButton"
         @click="scrollLeft"
-        class="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow-lg p-2 opacity-0 group-hover/row:opacity-100 transition-opacity duration-200 disabled:opacity-30 hover:scale-110 -ml-4"
+        class="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white dark:bg-gray-800 rounded-full shadow-lg p-2 opacity-0 group-hover/row:opacity-100 transition-opacity duration-200 disabled:opacity-30 hover:scale-110 -ml-4 text-gray-600 dark:text-gray-400 hover:text-accent dark:hover:text-accent-400"
         :disabled="atStart"
+        title="Прокрутить влево"
       >
         <ChevronLeftIcon class="w-5 h-5" />
       </button>
@@ -47,8 +50,9 @@
       <button
         v-if="showRightButton"
         @click="scrollRight"
-        class="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow-lg p-2 opacity-0 group-hover/row:opacity-100 transition-opacity duration-200 disabled:opacity-30 hover:scale-110 -mr-4"
+        class="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white dark:bg-gray-800 rounded-full shadow-lg p-2 opacity-0 group-hover/row:opacity-100 transition-opacity duration-200 disabled:opacity-30 hover:scale-110 -mr-4 text-gray-600 dark:text-gray-400 hover:text-accent dark:hover:text-accent-400"
         :disabled="atEnd"
+        title="Прокрутить вправо"
       >
         <ChevronRightIcon class="w-5 h-5" />
       </button>
@@ -75,7 +79,6 @@ const MAX_VISIBLE = 10;
 const visiblePosts = computed(() => props.posts.slice(0, MAX_VISIBLE));
 const hasMore = computed(() => props.posts.length > MAX_VISIBLE);
 
-// Логика прокрутки
 const scrollContainer = ref<HTMLElement | null>(null);
 const showLeftButton = ref(false);
 const showRightButton = ref(false);

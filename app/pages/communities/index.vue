@@ -4,10 +4,12 @@
     <div
       class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6"
     >
-      <h1 class="text-3xl font-bold text-gray-800">Сообщества</h1>
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
+        Сообщества
+      </h1>
       <NuxtLink
         to="/communities/create"
-        class="px-5 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition shadow-sm"
+        class="px-5 py-2 bg-accent hover:bg-accent-dark dark:bg-accent-600 dark:hover:bg-accent-700 text-white rounded-lg transition shadow-sm"
       >
         Создать сообщество
       </NuxtLink>
@@ -20,16 +22,16 @@
           v-model="searchQuery"
           type="text"
           placeholder="Поиск сообществ..."
-          class="w-full px-4 py-2 pl-10 bg-white border border-primary/20 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition"
+          class="w-full px-4 py-2 pl-10 bg-white dark:bg-gray-800 border border-primary/20 dark:border-gray-700 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition text-gray-900 dark:text-gray-100"
         />
         <MagnifyingGlassIcon
-          class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-primary/50"
+          class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-primary/50 dark:text-gray-500"
         />
       </div>
     </div>
 
     <!-- Вкладки -->
-    <div class="border-b border-primary/10 mb-6">
+    <div class="border-b border-primary/10 dark:border-gray-700 mb-6">
       <button
         v-for="tab in tabs"
         :key="tab.value"
@@ -37,8 +39,8 @@
         :class="[
           'px-4 py-2 text-sm font-medium transition-colors relative',
           activeTab === tab.value
-            ? 'text-accent border-b-2 border-accent'
-            : 'text-gray-600 hover:text-accent',
+            ? 'text-accent border-b-2 border-accent dark:text-accent-400 dark:border-accent-400'
+            : 'text-gray-600 dark:text-gray-400 hover:text-accent dark:hover:text-accent-400',
         ]"
       >
         {{ tab.label }}
@@ -53,7 +55,7 @@
       <div
         v-for="i in 6"
         :key="i"
-        class="h-40 bg-gray-200 rounded animate-pulse"
+        class="h-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"
       ></div>
     </div>
 
@@ -63,7 +65,7 @@
       <div v-if="activeTab === 'popular'">
         <div
           v-if="filteredPopular.length === 0"
-          class="text-center py-10 text-gray-500"
+          class="text-center py-10 text-gray-500 dark:text-gray-400"
         >
           Популярные сообщества не найдены
         </div>
@@ -83,7 +85,7 @@
       <div v-if="activeTab === 'all'">
         <div
           v-if="filteredAll.length === 0"
-          class="text-center py-10 text-gray-500"
+          class="text-center py-10 text-gray-500 dark:text-gray-400"
         >
           Сообщества не найдены
         </div>
@@ -151,3 +153,4 @@ onMounted(async () => {
   }
 });
 </script>
+  

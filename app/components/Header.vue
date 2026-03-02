@@ -12,6 +12,8 @@ import {
   FlagIcon,
   Squares2X2Icon,
 } from "@heroicons/vue/24/outline";
+import ThemeToggle from "./ThemeToggle.vue";
+
 type UserRow = Database["public"]["Tables"]["user"]["Row"];
 const { isAuthenticated, signOut } = useAuth();
 
@@ -21,7 +23,7 @@ const props = defineProps<{
 }>();
 
 const isOpen = ref(false); // дропдаун профиля (десктоп)
-const isMobileMenuOpen = ref(false); // бургер-меню (мобильные)
+const isMobileMenuOpen = ref(false); // бургер-меню
 const avatarButtonRef = ref<HTMLElement | null>(null);
 
 // Закрытие дропдауна при клике вне
@@ -103,7 +105,7 @@ const dropdownUser = computed(() => ({
 
 <template>
   <header
-    class="fixed top-0 left-0 w-full bg-white z-40 border-b border-primary/20"
+    class="fixed top-0 left-0 w-full bg-white dark:bg-gray-800 z-40 border-b border-primary/20 dark:border-gray-700"
   >
     <div class="flex items-center justify-between px-4 sm:px-6 lg:px-8 h-16">
       <!-- Логотип -->
@@ -113,8 +115,10 @@ const dropdownUser = computed(() => ({
             src="https://phlyzwfqtpddvgrprngo.supabase.co/storage/v1/object/public/avatars/logo.svg"
             class="w-10 h-10 rounded-full shadow-md object-cover"
             alt="Klio logo"
+            loading="lazy"
           />
-          <span class="text-xl font-semibold text-gray-800 hidden sm:inline"
+          <span
+            class="text-xl font-semibold text-gray-800 dark:text-white hidden sm:inline"
             >Klio</span
           >
         </NuxtLink>
@@ -127,31 +131,31 @@ const dropdownUser = computed(() => ({
       >
         <NuxtLink
           to="/"
-          class="flex items-center h-full px-1 text-sm font-medium text-gray-700 border-b-2 border-transparent hover:border-accent hover:text-accent transition"
+          class="flex items-center h-full px-1 text-sm font-medium text-gray-700 dark:text-gray-300 border-b-2 border-transparent hover:border-accent hover:text-accent dark:hover:text-accent-400 transition"
         >
           Главная
         </NuxtLink>
         <NuxtLink
           to="/categories"
-          class="flex items-center h-full px-1 text-sm font-medium text-gray-700 border-b-2 border-transparent hover:border-accent hover:text-accent transition"
+          class="flex items-center h-full px-1 text-sm font-medium text-gray-700 dark:text-gray-300 border-b-2 border-transparent hover:border-accent hover:text-accent dark:hover:text-accent-400 transition"
         >
           Каталог
         </NuxtLink>
         <NuxtLink
           to="/communities"
-          class="flex items-center h-full px-1 text-sm font-medium text-gray-700 border-b-2 border-transparent hover:border-accent hover:text-accent transition"
+          class="flex items-center h-full px-1 text-sm font-medium text-gray-700 dark:text-gray-300 border-b-2 border-transparent hover:border-accent hover:text-accent dark:hover:text-accent-400 transition"
         >
           Сообщества
         </NuxtLink>
         <NuxtLink
           to="/create"
-          class="flex items-center h-full px-1 text-sm font-medium text-gray-700 border-b-2 border-transparent hover:border-accent hover:text-accent transition"
+          class="flex items-center h-full px-1 text-sm font-medium text-gray-700 dark:text-gray-300 border-b-2 border-transparent hover:border-accent hover:text-accent dark:hover:text-accent-400 transition"
         >
           Создать пост
         </NuxtLink>
         <NuxtLink
           to="/profile/favorites"
-          class="flex items-center h-full px-1 text-sm font-medium text-gray-700 border-b-2 border-transparent hover:border-accent hover:text-accent transition"
+          class="flex items-center h-full px-1 text-sm font-medium text-gray-700 dark:text-gray-300 border-b-2 border-transparent hover:border-accent hover:text-accent dark:hover:text-accent-400 transition"
         >
           Избранное
         </NuxtLink>
@@ -159,9 +163,14 @@ const dropdownUser = computed(() => ({
 
       <!-- Правая часть -->
       <div class="flex items-center space-x-3">
+        <!-- Переключатель темы -->
+        <ThemeToggle />
+
         <!-- Состояние загрузки -->
         <div v-if="isLoading" class="flex items-center">
-          <div class="w-10 h-10 bg-gray-200 rounded-full animate-pulse"></div>
+          <div
+            class="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"
+          ></div>
         </div>
 
         <template v-else>
@@ -177,8 +186,9 @@ const dropdownUser = computed(() => ({
               >
                 <img
                   :src="avatarUrl"
-                  class="w-10 h-10 rounded-full shadow-md object-cover border-2 border-transparent hover:border-primary transition"
+                  class="w-10 h-10 rounded-full shadow-md object-cover border-2 border-transparent hover:border-primary dark:hover:border-accent-400 transition"
                   alt="User avatar"
+                  loading="lazy"
                 />
               </button>
               <transition
@@ -205,7 +215,7 @@ const dropdownUser = computed(() => ({
             <!-- Мобильные: бургер-иконка -->
             <div class="md:hidden">
               <button
-                class="p-2 rounded-md text-gray-600 hover:text-accent hover:bg-gray-100 focus:outline-none"
+                class="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:text-accent dark:hover:text-accent-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none"
                 @click="toggleMobileMenu"
                 @keydown.esc="closeMobileMenu"
               >
@@ -219,13 +229,13 @@ const dropdownUser = computed(() => ({
           <div v-else class="flex items-center space-x-2">
             <NuxtLink
               to="/auth/login"
-              class="px-4 py-2 text-sm font-medium text-primary border border-primary rounded-lg hover:bg-primary/5 transition"
+              class="px-4 py-2 text-sm font-medium text-primary border border-primary rounded-lg hover:bg-primary/5 dark:text-accent-400 dark:border-accent-400 dark:hover:bg-accent/10 transition"
             >
               Вход
             </NuxtLink>
             <NuxtLink
               to="/auth/register"
-              class="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/80 transition"
+              class="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/80 dark:bg-accent-600 dark:hover:bg-accent-700 transition"
             >
               Регистрация
             </NuxtLink>
@@ -245,23 +255,26 @@ const dropdownUser = computed(() => ({
     >
       <div
         v-if="isMobileMenuOpen && isAuthenticated"
-        class="absolute top-full left-0 w-full bg-white shadow-lg border-t border-gray-200 md:hidden z-50"
+        class="absolute top-full left-0 w-full bg-white dark:bg-gray-800 shadow-lg border-t border-gray-200 dark:border-gray-700 md:hidden z-50"
       >
         <div class="px-4 py-5 space-y-4">
           <!-- Блок профиля -->
           <div
-            class="flex items-center space-x-3 pb-3 border-b border-primary/10"
+            class="flex items-center space-x-3 pb-3 border-b border-primary/10 dark:border-gray-700"
           >
             <img
               :src="avatarUrl"
               class="w-12 h-12 rounded-full shadow-md object-cover"
               alt="Avatar"
+              loading="lazy"
             />
             <div class="flex-1 truncate">
-              <p class="text-base font-medium text-gray-900 truncate">
+              <p
+                class="text-base font-medium text-gray-900 dark:text-white truncate"
+              >
                 {{ dropdownUser.use }}
               </p>
-              <p class="text-sm text-gray-500 truncate">
+              <p class="text-sm text-gray-500 dark:text-gray-400 truncate">
                 {{ dropdownUser.email }}
               </p>
             </div>
@@ -270,56 +283,60 @@ const dropdownUser = computed(() => ({
           <!-- Навигационные ссылки -->
           <NuxtLink
             to="/"
-            class="block py-2 text-base text-gray-700 hover:text-accent hover:bg-gray-50 rounded-md px-2"
+            class="block py-2 text-base text-gray-700 dark:text-gray-300 hover:text-accent dark:hover:text-accent-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md px-2"
             @click="closeMobileMenu"
           >
             Главная
           </NuxtLink>
           <NuxtLink
             to="/categories"
-            class="block py-2 text-base text-gray-700 hover:text-accent hover:bg-gray-50 rounded-md px-2"
+            class="block py-2 text-base text-gray-700 dark:text-gray-300 hover:text-accent dark:hover:text-accent-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md px-2"
             @click="closeMobileMenu"
           >
             Каталог
           </NuxtLink>
           <NuxtLink
             to="/communities"
-            class="block py-2 text-base text-gray-700 hover:text-accent hover:bg-gray-50 rounded-md px-2"
+            class="block py-2 text-base text-gray-700 dark:text-gray-300 hover:text-accent dark:hover:text-accent-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md px-2"
             @click="closeMobileMenu"
           >
             Сообщества
           </NuxtLink>
           <NuxtLink
             to="/create"
-            class="block py-2 text-base text-gray-700 hover:text-accent hover:bg-gray-50 rounded-md px-2"
+            class="block py-2 text-base text-gray-700 dark:text-gray-300 hover:text-accent dark:hover:text-accent-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md px-2"
             @click="closeMobileMenu"
           >
             Создать пост
           </NuxtLink>
           <NuxtLink
             to="/profile/favorites"
-            class="block py-2 text-base text-gray-700 hover:text-accent hover:bg-gray-50 rounded-md px-2"
+            class="block py-2 text-base text-gray-700 dark:text-gray-300 hover:text-accent dark:hover:text-accent-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md px-2"
             @click="closeMobileMenu"
           >
             Избранное
           </NuxtLink>
 
           <!-- Дополнительные пункты -->
-          <div class="border-t border-primary/10 pt-3 space-y-1">
+          <div
+            class="border-t border-primary/10 dark:border-gray-700 pt-3 space-y-1"
+          >
             <NuxtLink
               :to="`/profile/${dropdownUser.auth_uid}`"
-              class="flex items-center py-2 px-2 text-base text-gray-700 hover:text-accent hover:bg-gray-50 rounded-md"
+              class="flex items-center py-2 px-2 text-base text-gray-700 dark:text-gray-300 hover:text-accent dark:hover:text-accent-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md"
               @click="closeMobileMenu"
             >
-              <UserIcon class="w-5 h-5 mr-3 text-gray-400" />
+              <UserIcon class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500" />
               Профиль
             </NuxtLink>
             <NuxtLink
               :to="`/profile/edit`"
-              class="flex items-center py-2 px-2 text-base text-gray-700 hover:text-accent hover:bg-gray-50 rounded-md"
+              class="flex items-center py-2 px-2 text-base text-gray-700 dark:text-gray-300 hover:text-accent dark:hover:text-accent-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md"
               @click="closeMobileMenu"
             >
-              <PencilIcon class="w-5 h-5 mr-3 text-gray-400" />
+              <PencilIcon
+                class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500"
+              />
               Редактировать профиль
             </NuxtLink>
             <!-- Модерация (для модератора и админа) -->
@@ -331,46 +348,52 @@ const dropdownUser = computed(() => ({
             >
               <NuxtLink
                 to="/moderate"
-                class="flex items-center py-2 px-2 text-base text-gray-700 hover:text-accent hover:bg-gray-50 rounded-md"
+                class="flex items-center py-2 px-2 text-base text-gray-700 dark:text-gray-300 hover:text-accent dark:hover:text-accent-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md"
                 @click="closeMobileMenu"
               >
-                <Squares2X2Icon class="w-5 h-5 mr-3 text-gray-400" />
+                <Squares2X2Icon
+                  class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500"
+                />
                 Панель модерации
               </NuxtLink>
 
               <NuxtLink
                 to="/moderate/posts"
-                class="flex items-center py-2 px-2 text-base text-gray-700 hover:text-accent hover:bg-gray-50 rounded-md"
+                class="flex items-center py-2 px-2 text-base text-gray-700 dark:text-gray-300 hover:text-accent dark:hover:text-accent-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md"
                 @click="closeMobileMenu"
               >
-                <BriefcaseIcon class="w-5 h-5 mr-3 text-gray-400" />
+                <BriefcaseIcon
+                  class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500"
+                />
                 Модерация постов
               </NuxtLink>
               <NuxtLink
                 to="/moderate/reports"
-                class="flex items-center py-2 px-2 text-base text-gray-700 hover:text-accent hover:bg-gray-50 rounded-md"
+                class="flex items-center py-2 px-2 text-base text-gray-700 dark:text-gray-300 hover:text-accent dark:hover:text-accent-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md"
                 @click="closeMobileMenu"
               >
-                <FlagIcon class="w-5 h-5 mr-3 text-gray-400" />
+                <FlagIcon
+                  class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500"
+                />
                 Жалобы
               </NuxtLink>
             </template>
             <NuxtLink
               v-if="dropdownUser.role === 'admin'"
-              to="/register"
-              class="flex items-center py-2 px-2 text-base text-gray-700 hover:text-accent hover:bg-gray-50 rounded-md"
+              to="/moderate/create-moderator"
+              class="flex items-center py-2 px-2 text-base text-gray-700 dark:text-gray-300 hover:text-accent dark:hover:text-accent-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md"
               @click="closeMobileMenu"
             >
-              <PlusIcon class="w-5 h-5 mr-3 text-gray-400" />
+              <PlusIcon class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500" />
               Создать модератора
             </NuxtLink>
 
             <button
-              class="flex w-full items-center py-2 px-2 text-base text-gray-700 hover:text-accent hover:bg-gray-50 rounded-md"
+              class="flex w-full items-center py-2 px-2 text-base text-gray-700 dark:text-gray-300 hover:text-accent dark:hover:text-accent-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md"
               @click="handleLogout"
             >
               <ArrowRightStartOnRectangleIcon
-                class="w-5 h-5 mr-3 text-gray-400"
+                class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500"
               />
               Выход
             </button>

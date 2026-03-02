@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Database } from "~/types/supabase";
+
 definePageMeta({
   layout: "auth",
 });
@@ -7,6 +8,14 @@ definePageMeta({
 const submitted = ref(false);
 const formErrors = ref<{ general?: string }>({});
 const supabase = useSupabaseClient<Database>();
+
+const inputClass =
+  "bg-white dark:bg-gray-800 border border-primary/20 dark:border-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-2 w-full focus:border-accent focus:ring-1 focus:ring-accent";
+const labelClass =
+  "block text-gray-700 dark:text-gray-300 text-sm font-medium mb-1";
+const helpClass = "text-xs text-gray-500 dark:text-gray-400 mt-1";
+const submitButtonClass =
+  "w-full px-4 py-2 bg-accent hover:bg-accent-dark dark:bg-accent-600 dark:hover:bg-accent-700 text-white rounded-lg transition disabled:opacity-50";
 
 const submitHandler = async (data?: {
   name: string;
@@ -71,8 +80,6 @@ const submitHandler = async (data?: {
 
     if (profileError) {
       console.error("Profile creation error:", profileError);
-      // В случае ошибки создания профиля, желательно удалить пользователя из auth
-      // (но это сложно, можно просто показать ошибку)
       formErrors.value.general = "Ошибка создания профиля. Попробуйте позже.";
       return;
     }
@@ -99,14 +106,17 @@ const togglePasswordVisibility = (node: any) => {
 
 <template>
   <div class="flex h-screen w-screen">
-    <div class="w-1/2 h-full overflow-hidden">
+    <div class="w-1/2 h-full overflow-hidden hidden lg:block">
       <img
         src="https://phlyzwfqtpddvgrprngo.supabase.co/storage/v1/object/public/avatars/auth.png"
         alt="Registration background"
         class="w-full h-full object-cover"
+        loading="lazy"
       />
     </div>
-    <div class="w-1/2 h-full flex items-center justify-center p-8">
+    <div
+      class="w-full lg:w-1/2 h-full flex items-center justify-center p-8 bg-gray-50 dark:bg-gray-900"
+    >
       <div class="w-full max-w-md">
         <FormKit
           id="registration-form"
@@ -117,7 +127,9 @@ const togglePasswordVisibility = (node: any) => {
           incomplete-message="Введите данные"
           @submit="submitHandler"
         >
-          <h1 class="font-bold text-4xl mb-8">Регистрация!</h1>
+          <h1 class="font-bold text-4xl mb-8 text-gray-900 dark:text-white">
+            Регистрация!
+          </h1>
 
           <FormKit
             type="text"
@@ -125,8 +137,9 @@ const togglePasswordVisibility = (node: any) => {
             label="Имя"
             placeholder="Ваше имя"
             validation="required"
-            label-class="text-lg"
-            input-class="text-lg py-2 px-4 w-full"
+            :input-class="inputClass"
+            :label-class="labelClass"
+            :help-class="helpClass"
             :validation-messages="{ required: 'Пожалуйста, введите ваше имя.' }"
           />
 
@@ -137,8 +150,9 @@ const togglePasswordVisibility = (node: any) => {
             placeholder="user@example.com"
             help="Введите вашу почту"
             validation="required|email"
-            label-class="text-lg"
-            input-class="text-lg py-2 px-4 w-full"
+            :input-class="inputClass"
+            :label-class="labelClass"
+            :help-class="helpClass"
             :validation-messages="{
               required: 'Пожалуйста, введите ваш email.',
               email: 'Пожалуйста, введите корректный email адрес.',
@@ -155,8 +169,9 @@ const togglePasswordVisibility = (node: any) => {
               required: 'Пожалуйста, введите номер телефона.',
               matches: 'Некорректный формат номера.',
             }"
-            label-class="text-lg"
-            input-class="text-lg py-2 px-4 w-full"
+            :input-class="inputClass"
+            :label-class="labelClass"
+            :help-class="helpClass"
           />
 
           <FormKit
@@ -170,8 +185,9 @@ const togglePasswordVisibility = (node: any) => {
             }"
             placeholder="Пароль"
             help="Введите пароль"
-            label-class="text-lg"
-            input-class="text-lg py-2 px-4 w-full"
+            :input-class="inputClass"
+            :label-class="labelClass"
+            :help-class="helpClass"
             suffix-icon="eyeClosed"
             @suffix-icon-click="togglePasswordVisibility"
           />
@@ -187,25 +203,36 @@ const togglePasswordVisibility = (node: any) => {
               confirm: 'Пароли не совпадают.',
             }"
             help="Подтвердите пароль"
-            label-class="text-lg"
-            input-class="text-lg py-2 px-4 w-full"
+            :input-class="inputClass"
+            :label-class="labelClass"
+            :help-class="helpClass"
             suffix-icon="eyeClosed"
             @suffix-icon-click="togglePasswordVisibility"
           />
 
-          <FormKit type="submit" class="mt-5">Продолжить ></FormKit>
+          <FormKit type="submit" :input-class="submitButtonClass" class="mt-5"
+            >Продолжить ></FormKit
+          >
         </FormKit>
 
-        <div v-if="formErrors.general" class="text-red-500 mt-4">
+        <div
+          v-if="formErrors.general"
+          class="text-red-500 dark:text-red-400 mt-4"
+        >
           {{ formErrors.general }}
         </div>
 
-        <NuxtLink to="/auth/login" class="block mt-4 text-sm">
+        <NuxtLink
+          to="/auth/login"
+          class="block mt-4 text-sm text-primary hover:underline dark:text-accent-400"
+        >
           Уже есть аккаунт
         </NuxtLink>
 
         <div v-if="submitted && !formErrors.general" class="mt-4">
-          <h2 class="text-xl text-green-500">Регистрация прошла успешно!</h2>
+          <h2 class="text-xl text-green-500 dark:text-green-400">
+            Регистрация прошла успешно!
+          </h2>
         </div>
       </div>
     </div>

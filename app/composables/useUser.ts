@@ -113,11 +113,11 @@ export const useUser = () => {
     // Посты, созданные пользователем (если нужно отслеживать активность постинга)
 
     // Агрегируем по дням
-    const dates = [];
+    const dates: string[] = [];
     for (let i = 0; i < days; i++) {
       const d = new Date(startDate);
       d.setDate(d.getDate() + i);
-      dates.push(d.toISOString().split("T")[0]); // YYYY-MM-DD
+      dates.push(d.toISOString().split("T")[0] as string);
     }
 
     const likesReceivedCount = dates.map(

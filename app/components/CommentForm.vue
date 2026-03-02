@@ -1,83 +1,37 @@
 <template>
   <div>
     <!-- Индикатор ответа -->
-    <div v-if="replyTo" class="mb-2 text-sm text-primary">
+    <div v-if="replyTo" class="mb-2 text-sm text-accent dark:text-accent-400">
       Ответ <span class="font-medium">{{ replyTo }}</span>
-      <button
-        @click="$emit('cancel')"
-        class="ml-2 text-gray-400 hover:text-primary transition"
-      >
-        ✕
-      </button>
+      <button @click="$emit('cancel')" class="ml-2 text-gray-400 dark:text-gray-500 hover:text-primary dark:hover:text-accent-400 transition" title="Отменить ответ">✕</button>
     </div>
 
-    <!-- Основная строка: поле ввода + кнопки -->
+    <!-- Основная строка -->
     <div class="flex items-start gap-2">
-      <!-- Поле ввода (адаптивная высота) -->
       <div class="flex-1">
-        <textarea
-          ref="textareaRef"
-          v-model="text"
-          rows="1"
-          maxlength="5000"
-          class="w-full px-4 py-2 bg-white border border-primary/20 rounded-lg resize-none overflow-hidden focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition"
-          :placeholder="
-            replyTo ? 'Напишите ответ...' : 'Напишите комментарий...'
-          "
-          @input="adjustHeight"
-          @keydown.enter.prevent="submitOnEnter"
-        ></textarea>
+        <textarea ref="textareaRef" v-model="text" rows="1" maxlength="5000" class="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-primary/20 dark:border-gray-700 rounded-lg resize-none overflow-hidden focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500" :placeholder="replyTo ? 'Напишите ответ...' : 'Напишите комментарий...'" @input="adjustHeight" @keydown.enter.prevent="submitOnEnter"></textarea>
       </div>
 
-      <!-- Кнопки: скрепка и отправка (компактные, круглые) -->
+      <!-- Кнопки -->
       <div class="flex items-center gap-1 mt-1">
-        <button
-          @click="triggerFileSelect"
-          class="p-2 text-gray-400 hover:text-accent rounded-full hover:bg-gray-100 transition"
-          title="Прикрепить изображения"
-          type="button"
-        >
+        <button @click="triggerFileSelect" class="p-2 text-gray-400 dark:text-gray-500 hover:text-accent dark:hover:text-accent-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition" title="Прикрепить изображения" type="button">
           <PaperClipIcon class="w-5 h-5" />
         </button>
-        <button
-          @click="submitComment"
-          :disabled="!text.trim() || submitting"
-          class="p-2 bg-accent text-white rounded-full hover:bg-accent/80 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          type="button"
-        >
+        <button @click="submitComment" :disabled="!text.trim() || submitting" class="p-2 bg-accent hover:bg-accent-dark dark:bg-accent-600 dark:hover:bg-accent-700 text-white rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed" type="button" :title="text.trim() ? 'Отправить' : 'Введите текст'">
           <PaperAirplaneIcon v-if="!submitting" class="w-5 h-5" />
-          <span
-            v-else
-            class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"
-          ></span>
+          <span v-else class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
         </button>
       </div>
     </div>
 
     <!-- Скрытый input для файлов -->
-    <input
-      ref="fileInput"
-      type="file"
-      accept="image/jpeg,image/png,image/webp"
-      multiple
-      class="hidden"
-      @change="onFileSelected"
-    />
+    <input ref="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple class="hidden" @change="onFileSelected" />
 
     <!-- Превью изображений -->
     <div v-if="imagePreviews.length" class="flex flex-wrap gap-2 mt-3">
       <div v-for="(preview, idx) in imagePreviews" :key="idx" class="relative">
-        <img
-          :src="preview"
-          class="w-12 h-12 object-cover rounded border border-primary/20"
-        />
-        <button
-          @click="removeImage(idx)"
-          class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 shadow-sm"
-          type="button"
-        >
-          ×
-        </button>
+        <img :src="preview" class="w-12 h-12 object-cover rounded border border-primary/20 dark:border-gray-700" loading="lazy" />
+        <button @click="removeImage(idx)" class="absolute -top-1.5 -right-1.5 bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-sm" title="Удалить" type="button">×</button>
       </div>
     </div>
   </div>

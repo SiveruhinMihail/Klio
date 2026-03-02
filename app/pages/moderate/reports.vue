@@ -4,23 +4,23 @@
     <div
       class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6"
     >
-      <h1 class="text-3xl font-bold text-gray-800">Жалобы</h1>
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Жалобы</h1>
       <div class="relative w-full sm:w-64">
         <input
           v-model="searchInput"
           type="text"
           placeholder="Поиск по причине или имени..."
-          class="w-full px-4 py-2 pl-10 bg-white border border-primary/20 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition"
+          class="w-full px-4 py-2 pl-10 bg-white dark:bg-gray-800 border border-primary/30 dark:border-gray-700 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition text-gray-900 dark:text-gray-100"
           @input="debouncedSearch"
         />
         <MagnifyingGlassIcon
-          class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-primary/50"
+          class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-primary/50 dark:text-gray-500"
         />
       </div>
     </div>
 
     <!-- Вкладки с типами -->
-    <div class="border-b border-primary/10 mb-6">
+    <div class="border-b border-primary/10 dark:border-gray-700 mb-6">
       <button
         v-for="tab in tabs"
         :key="tab.value"
@@ -29,27 +29,31 @@
           'px-4 py-2 text-sm font-medium transition-colors relative',
           filterType === tab.value
             ? 'text-accent border-b-2 border-accent'
-            : 'text-gray-600 hover:text-accent',
+            : 'text-gray-600 dark:text-gray-400 hover:text-accent dark:hover:text-accent-400',
         ]"
+        :title="`Показать ${tab.label.toLowerCase()}`"
       >
         {{ tab.label }}
         <span
           v-if="tab.count"
-          class="absolute -top-1 -right-2 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full"
+          class="absolute -top-1 -right-2 text-xs bg-accent/10 text-accent px-1.5 py-0.5 rounded-full"
           >{{ tab.count }}</span
         >
       </button>
     </div>
 
     <!-- Состояние загрузки -->
-    <div v-if="loading" class="text-center py-10 text-gray-500">
+    <div
+      v-if="loading"
+      class="text-center py-10 text-gray-500 dark:text-gray-400"
+    >
       Загрузка...
     </div>
 
     <!-- Нет жалоб -->
     <div
       v-else-if="filteredReports.length === 0"
-      class="text-center py-10 text-gray-500"
+      class="text-center py-10 text-gray-500 dark:text-gray-400"
     >
       Нет жалоб
     </div>
@@ -59,25 +63,29 @@
       <div
         v-for="r in filteredReports"
         :key="r.id"
-        class="bg-white border border-primary/10 rounded-lg p-4 shadow-sm hover:shadow-md transition"
+        class="bg-white dark:bg-gray-800 border border-primary/10 dark:border-gray-700 rounded-lg p-4 shadow-sm hover:shadow-md transition"
       >
         <div class="flex flex-col lg:flex-row justify-between gap-4">
           <!-- Левая часть: информация о жалобе -->
           <div class="flex-1 space-y-2">
             <div class="flex items-center gap-2 text-sm">
-              <span class="bg-primary/10 text-primary px-2 py-0.5 rounded">{{
-                getTargetTypeLabel(r.target_type)
-              }}</span>
-              <span class="text-gray-500">ID: {{ r.target_id }}</span>
+              <span
+                class="bg-accent/10 text-accent dark:bg-accent/20 dark:text-accent-400 px-2 py-0.5 rounded"
+                >{{ getTargetTypeLabel(r.target_type) }}</span
+              >
+              <span class="text-gray-500 dark:text-gray-400"
+                >ID: {{ r.target_id }}</span
+              >
             </div>
 
             <!-- Ссылка на объект жалобы -->
-            <div class="text-gray-800">
+            <div class="text-gray-800 dark:text-gray-200">
               <!-- Пост -->
               <template v-if="r.target_type === 'post' && r.targetData">
                 <NuxtLink
                   :to="`/post/${r.target_id}`"
-                  class="font-medium hover:text-accent"
+                  class="font-medium hover:text-accent dark:hover:text-accent-400"
+                  :title="`Перейти к посту: ${r.targetData.title}`"
                 >
                   {{ r.targetData.title }}
                 </NuxtLink>
@@ -86,7 +94,8 @@
               <template v-else-if="r.target_type === 'comment' && r.targetData">
                 <NuxtLink
                   :to="`/post/${r.targetData.post_id}#comment-${r.target_id}`"
-                  class="font-medium hover:text-accent"
+                  class="font-medium hover:text-accent dark:hover:text-accent-400"
+                  :title="`Перейти к комментарию`"
                 >
                   {{ r.targetData.text }}
                 </NuxtLink>
@@ -95,7 +104,8 @@
               <template v-else-if="r.target_type === 'user' && r.targetData">
                 <NuxtLink
                   :to="`/profile/${r.targetData.auth_uid}`"
-                  class="font-medium hover:text-accent"
+                  class="font-medium hover:text-accent dark:hover:text-accent-400"
+                  :title="`Профиль пользователя`"
                 >
                   {{ r.targetData.use || r.targetData.username }}
                 </NuxtLink>
@@ -106,63 +116,77 @@
               >
                 <NuxtLink
                   :to="`/communities/${r.target_id}`"
-                  class="font-medium hover:text-accent flex items-center gap-1"
+                  class="font-medium hover:text-accent dark:hover:text-accent-400 flex items-center gap-1"
+                  :title="`Перейти к сообществу`"
                 >
                   <img
                     :src="r.targetData.avatar || defaultAvatar"
                     class="w-5 h-5 rounded-full object-cover"
                     alt=""
                     @error="handleImageError"
+                    loading="lazy"
                   />
                   {{ r.targetData.name }}
                 </NuxtLink>
               </template>
-              <div v-else class="text-gray-400 italic">(объект удалён)</div>
+              <div v-else class="text-gray-400 dark:text-gray-500 italic">
+                (объект удалён)
+              </div>
             </div>
 
             <!-- Причина -->
-            <p class="text-gray-600">
+            <p class="text-gray-600 dark:text-gray-300">
               <span class="font-medium">Причина:</span> {{ r.reason }}
             </p>
 
             <!-- Информация об отправителе жалобы -->
-            <div class="flex items-center gap-2 text-sm text-gray-500">
+            <div
+              class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400"
+            >
               <span class="font-medium">Отправитель:</span>
               <NuxtLink
                 v-if="r.reporter"
                 :to="`/profile/${r.reporter.auth_uid}`"
-                class="flex items-center gap-1 hover:text-accent"
+                class="flex items-center gap-1 hover:text-accent dark:hover:text-accent-400"
+                :title="`Профиль отправителя`"
               >
                 <img
                   :src="r.reporter.avatar || defaultAvatar"
                   class="w-5 h-5 rounded-full object-cover"
                   alt=""
                   @error="handleImageError"
+                  loading="lazy"
                 />
                 <span>{{ r.reporter.use || r.reporter.username }}</span>
               </NuxtLink>
-              <span v-else class="text-gray-400">(удалён)</span>
+              <span v-else class="text-gray-400 dark:text-gray-500"
+                >(удалён)</span
+              >
             </div>
 
             <!-- Информация об авторе (если есть и это не жалоба на пользователя) -->
             <div
               v-if="r.author && r.target_type !== 'user'"
-              class="flex items-center gap-2 text-sm text-gray-500"
+              class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400"
             >
               <span class="font-medium">Автор:</span>
               <NuxtLink
                 :to="`/profile/${r.author.auth_uid}`"
-                class="flex items-center gap-1 hover:text-accent"
+                class="flex items-center gap-1 hover:text-accent dark:hover:text-accent-400"
+                :title="`Профиль автора`"
               >
                 <img
                   :src="r.author.avatar || defaultAvatar"
                   class="w-5 h-5 rounded-full object-cover"
                   alt=""
                   @error="handleImageError"
+                  loading="lazy"
                 />
                 <span>{{ r.author.use || r.author.username }}</span>
               </NuxtLink>
-              <span v-if="r.authorBanned" class="text-orange-600 ml-2 text-xs"
+              <span
+                v-if="r.authorBanned"
+                class="text-orange-600 dark:text-orange-400 ml-2 text-xs"
                 >(забанен)</span
               >
             </div>
@@ -170,6 +194,12 @@
 
           <!-- Правая часть: панель действий -->
           <div class="flex flex-col gap-2 min-w-[200px]">
+            <!-- Группа: Действия с контентом -->
+            <p
+              class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1"
+            >
+              Действия с контентом
+            </p>
             <!-- Удалить контент (если это пост/комментарий/сообщество) -->
             <button
               v-if="
@@ -179,19 +209,30 @@
               "
               @click="deleteContent(r)"
               :disabled="r.processing"
-              class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/80 transition disabled:opacity-50 w-full text-left flex items-center gap-2"
+              class="px-4 py-2 bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 text-white rounded-lg transition disabled:opacity-50 w-full text-left flex items-center gap-2"
               :title="`Удалить ${getTargetTypeLabel(r.target_type).toLowerCase()}`"
             >
               <TrashIcon class="w-5 h-5" />
               <span>Удалить {{ getTargetTypeLabel(r.target_type) }}</span>
             </button>
 
+            <!-- Разделитель -->
+            <div
+              class="border-t border-primary/10 dark:border-gray-700 my-2"
+            ></div>
+
+            <!-- Группа: Действия с пользователем -->
+            <p
+              class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1"
+            >
+              Действия с пользователем
+            </p>
             <!-- Бан автора (если автор существует и не забанен) -->
             <button
               v-if="r.author && !r.authorBanned"
               @click="banUserOnly(r.author.id)"
               :disabled="r.processing"
-              class="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition disabled:opacity-50 w-full text-left flex items-center gap-2"
+              class="px-4 py-2 bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 text-white rounded-lg transition disabled:opacity-50 w-full text-left flex items-center gap-2"
               title="Заблокировать автора"
             >
               <NoSymbolIcon class="w-5 h-5" />
@@ -203,7 +244,7 @@
               v-if="r.author"
               @click="banUserWithContent(r.author.id)"
               :disabled="r.processing"
-              class="px-4 py-2 bg-red-800 text-white rounded-lg hover:bg-red-900 transition disabled:opacity-50 w-full text-left flex items-center gap-2"
+              class="px-4 py-2 bg-red-800 hover:bg-red-900 dark:bg-red-900 dark:hover:bg-red-800 text-white rounded-lg transition disabled:opacity-50 w-full text-left flex items-center gap-2"
               title="Заблокировать и удалить весь контент автора"
             >
               <TrashIcon class="w-5 h-5" />
@@ -216,18 +257,30 @@
               v-if="r.reporter && !r.reporterBanned"
               @click="banUserOnly(r.reporter.id)"
               :disabled="r.processing"
-              class="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition disabled:opacity-50 w-full text-left flex items-center gap-2"
+              class="px-4 py-2 bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 text-white rounded-lg transition disabled:opacity-50 w-full text-left flex items-center gap-2"
               title="Заблокировать отправителя"
             >
               <NoSymbolIcon class="w-5 h-5" />
               <span>Забанить отправителя</span>
             </button>
 
+            <!-- Разделитель -->
+            <div
+              class="border-t border-primary/10 dark:border-gray-700 my-2"
+            ></div>
+
+            <!-- Группа: Решение по жалобе -->
+            <p
+              class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1"
+            >
+              Решение по жалобе
+            </p>
             <!-- Отклонить жалобу -->
             <button
               @click="resolve(r.id)"
               :disabled="r.processing"
-              class="px-4 py-2 border border-green-600 text-green-600 rounded-lg hover:bg-green-50 transition disabled:opacity-50 w-full text-left flex items-center gap-2"
+              class="px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 text-white rounded-lg transition disabled:opacity-50 w-full text-left flex items-center gap-2"
+              title="Отклонить жалобу (пометить как resolved)"
             >
               <CheckIcon class="w-5 h-5" />
               <span>Отклонить жалобу</span>
@@ -248,9 +301,13 @@ import {
   CheckIcon,
 } from "@heroicons/vue/24/outline";
 import { useAuth } from "~/composables/useAuth";
-import type { st } from "vue-router/dist/router-CWoNjPRp.mjs";
+import type { Database } from "~/types/supabase";
 
-const supabase = useSupabaseClient();
+definePageMeta({
+  ssr: false, // отключаем SSR, так как это защищённая зона и не требует SEO
+})
+
+const supabase = useSupabaseClient<Database>();
 const { isModerator, isAdmin } = useAuth();
 const defaultAvatar =
   "https://phlyzwfqtpddvgrprngo.supabase.co/storage/v1/object/public/avatars/default.jpg";
@@ -343,7 +400,6 @@ const filteredReports = computed(() => {
   return filtered;
 });
 
-// Функция для получения названия типа (принимает string | null)
 function getTargetTypeLabel(type: string | null) {
   switch (type) {
     case "post":
@@ -370,7 +426,6 @@ const debouncedSearch = debounce(() => {
   searchQuery.value = searchInput.value;
 }, 300);
 
-// Функция для получения данных пользователя (без is_banned)
 async function fetchUser(userId: number): Promise<{
   id: number;
   username: string | null;
@@ -431,7 +486,6 @@ async function loadReports() {
           authorBanned: false,
         };
 
-        // Загружаем данные цели в зависимости от типа
         if (r.target_type === "post") {
           const { data: post } = await supabase
             .from("post")

@@ -127,6 +127,7 @@ onUnmounted(() => {
         "
         class="avatar"
         alt="Avatar"
+        loading="lazy"
       />
       <div v-if="!uploading" class="avatar-overlay">
         <span class="plus-icon">+</span>
@@ -147,6 +148,7 @@ onUnmounted(() => {
               :src="imageUrl"
               alt="Обрезка"
               style="max-width: 100%"
+              loading="lazy"
             />
           </div>
           <div class="cropper-actions">

@@ -1,6 +1,7 @@
-<!-- components/CommentItem.vue -->
 <template>
-  <div class="border border-primary/10 rounded-lg p-4 bg-white">
+  <div
+    class="border border-primary/10 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800"
+  >
     <!-- Шапка комментария -->
     <div class="flex items-center justify-between mb-2">
       <div class="flex items-center gap-2">
@@ -9,26 +10,29 @@
           class="flex items-center gap-2 group"
         >
           <img
-            :src="comment.user?.avatar || '/default-avatar.png'"
+            :src="getAvatarUrl(comment.user?.avatar, 48)"
             class="w-6 h-6 rounded-full object-cover"
             alt=""
+            loading="lazy"
           />
-          <span class="font-medium group-hover:text-accent">
+          <span
+            class="font-medium group-hover:text-accent dark:group-hover:text-accent-400 text-gray-900 dark:text-white"
+          >
             {{ comment.user?.use || "Пользователь" }}
           </span>
         </NuxtLink>
-        <span class="text-xs text-gray-400">{{
+        <span class="text-xs text-gray-400 dark:text-gray-500">{{
           formatDate(comment.created_at)
         }}</span>
       </div>
 
-      <!-- Кнопки действий (только если interactive = true) -->
+      <!-- Кнопки действий -->
       <div v-if="interactive" class="flex items-center gap-2">
-        <!-- Лайк -->
         <button
           @click="$emit('like', comment)"
           :disabled="!isAuthenticated"
-          class="flex items-center gap-1 text-gray-500 hover:text-red-500 transition"
+          class="flex items-center gap-1 text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition"
+          :title="comment.liked ? 'Убрать лайк' : 'Поставить лайк'"
         >
           <HeartIcon
             :class="[comment.liked ? 'text-red-500 fill-red-500' : '']"
@@ -36,20 +40,17 @@
           />
           <span class="text-xs">{{ comment.likes_count }}</span>
         </button>
-
-        <!-- Ответить -->
         <button
           @click="$emit('reply', comment)"
-          class="text-gray-500 hover:text-accent text-sm transition"
+          class="text-gray-500 dark:text-gray-400 hover:text-accent dark:hover:text-accent-400 text-sm transition"
+          title="Ответить"
         >
           Ответить
         </button>
-
-        <!-- Жалоба -->
         <button
           @click="$emit('report', comment)"
           :disabled="!isAuthenticated || comment.reported"
-          class="text-gray-500 hover:text-primary disabled:opacity-50 transition"
+          class="text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-accent-400 disabled:opacity-50 transition"
           :title="comment.reported ? 'Вы уже отправили жалобу' : 'Пожаловаться'"
         >
           <FlagIcon
@@ -61,29 +62,29 @@
     </div>
 
     <!-- Текст комментария -->
-    <p class="text-gray-800">{{ comment.text }}</p>
+    <p class="text-gray-800 dark:text-gray-200">{{ comment.text }}</p>
 
-    <!-- Сообщества пользователя -->
     <!-- Топ верифицированные сообщества пользователя -->
     <div v-if="topCommunities.length" class="flex flex-wrap gap-1 mt-1">
       <NuxtLink
         v-for="c in topCommunities"
         :key="c.id"
         :to="`/communities/${c.id}`"
-        class="flex items-center gap-1 text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full hover:bg-accent/20 transition"
+        class="flex items-center gap-1 text-xs bg-accent/10 dark:bg-accent/20 text-accent dark:text-accent-400 px-2 py-0.5 rounded-full hover:bg-accent/20 dark:hover:bg-accent/30 transition"
       >
         <span>{{ c.name }}</span>
         <CheckBadgeIcon class="w-3 h-3" />
       </NuxtLink>
     </div>
 
-    <!-- Изображения комментария -->
+    <!-- Изображения -->
     <div v-if="comment.images?.length" class="flex flex-wrap gap-2 mt-2">
       <img
         v-for="(img, idx) in comment.images"
         :key="idx"
         :src="img.url"
         class="w-20 h-20 object-cover rounded cursor-pointer hover:opacity-80 transition"
+        loading="lazy"
         @click="
           $emit(
             'open-image',
@@ -112,28 +113,32 @@
 </template>
 
 <script setup lang="ts">
-import { HeartIcon, FlagIcon } from "@heroicons/vue/24/outline";
-import { CheckBadgeIcon } from "@heroicons/vue/24/outline";
-
-const topCommunities = computed(() => {
-  if (!props.comment.user?.communities) return [];
-  return props.comment.user.communities
-    .map((item) => item.community)
-    .filter((c) => c.patent)
-    .sort((a, b) => b.rating - a.rating)
-    .slice(0, 3);
-});
+import { HeartIcon, FlagIcon, CheckBadgeIcon } from "@heroicons/vue/24/outline";
+import { computed } from "vue";
+import { getAvatarUrl } from "~/utils/image";
 
 const props = defineProps<{
   comment: any;
   isAuthenticated: boolean;
-  interactive?: boolean; // по умолчанию true, если не передано
+  interactive?: boolean;
 }>();
-
 defineEmits<{
   (e: "like" | "reply" | "report", comment: any): void;
   (e: "open-image", images: string[], index: number): void;
 }>();
+
+const defaultAvatar =
+  "https://phlyzwfqtpddvgrprngo.supabase.co/storage/v1/object/public/avatars/default.jpg";
+
+const topCommunities = computed(() => {
+  if (!props.comment.user?.communities) return [];
+  return props.comment.user.communities
+    .filter((item: any) => item.role === "member" || item.role === "admin")
+    .map((item: any) => item.community)
+    .filter((c: any) => c.patent)
+    .sort((a: any, b: any) => b.rating - a.rating)
+    .slice(0, 3);
+});
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("ru-RU", {

@@ -1,33 +1,43 @@
 <!-- pages/profile/favorites.vue -->
 <script setup lang="ts">
+import { useReactionState } from "~/composables/useReactionState";
+
 const supabase = useSupabaseClient();
 const { userId, isAuthenticated } = useAuth();
 const { getUserFavorites } = useUser();
-const { toggleFavorite } = useFavorites();
+const { initPostReactions, toggleLike, toggleFavorite } = useReactionState();
 
 const favorites = ref<any[]>([]);
 const loading = ref(true);
 
-// Обогащение постов информацией о лайках текущего пользователя
-async function enrichWithLikes(posts: any[]) {
+// Инициализация реакций для списка избранного
+async function initReactions(posts: any[]) {
   if (!isAuthenticated.value || !userId.value || !posts.length) return posts;
 
   const postIds = posts.map((p) => p.id);
-  const { data: likes } = await supabase
-    .from("like_to_post")
-    .select("post_id")
-    .eq("user_id", userId.value)
-    .in("post_id", postIds);
+  const [likesResult] = await Promise.all([
+    supabase
+      .from("like_to_post")
+      .select("post_id")
+      .eq("user_id", userId.value)
+      .in("post_id", postIds),
+  ]);
 
-  const likedSet = new Set(likes?.map((l) => l.post_id) || []);
-  return posts.map((post) => ({
-    ...post,
-    isLiked: likedSet.has(post.id),
-    isFavorited: true,
-  }));
+  const likedSet = new Set(likesResult.data?.map((l) => l.post_id) || []);
+
+  posts.forEach((post) => {
+    initPostReactions(
+      post.id,
+      likedSet.has(post.id),
+      post.likes?.[0]?.count || 0,
+      true, // все посты в избранном уже favorited
+    );
+  });
+
+  return posts;
 }
 
-// Обновление поста в локальном массиве
+// Обновление поста в локальном массиве (для отображения)
 function updatePost(updatedPost: any) {
   const index = favorites.value.findIndex((p) => p.id === updatedPost.id);
   if (index !== -1) {
@@ -35,31 +45,10 @@ function updatePost(updatedPost: any) {
   }
 }
 
-// Обработка лайка
+// Обработка лайка (используем глобальное состояние)
 async function handleLike(post: any) {
-  if (!isAuthenticated.value || !userId.value) return;
   try {
-    if (post.isLiked) {
-      await supabase
-        .from("like_to_post")
-        .delete()
-        .eq("post_id", post.id)
-        .eq("user_id", userId.value);
-      if (post.likes && post.likes[0]) {
-        post.likes[0].count -= 1;
-      }
-    } else {
-      await supabase
-        .from("like_to_post")
-        .insert({ post_id: post.id, user_id: userId.value });
-      if (post.likes && post.likes[0]) {
-        post.likes[0].count += 1;
-      } else {
-        post.likes = [{ count: 1 }];
-      }
-    }
-    post.isLiked = !post.isLiked;
-    updatePost(post);
+    await toggleLike(post.id);
   } catch (e) {
     console.error("Error toggling like:", e);
   }
@@ -67,16 +56,10 @@ async function handleLike(post: any) {
 
 // Обработка закладки (удаление из избранного)
 async function handleFavorite(post: any) {
-  if (!isAuthenticated.value || !userId.value) return;
   try {
-    const newState = await toggleFavorite(post.id);
-    post.isFavorited = newState;
-    if (!newState) {
-      // Удаляем из текущего списка
-      favorites.value = favorites.value.filter((p) => p.id !== post.id);
-    } else {
-      updatePost(post);
-    }
+    await toggleFavorite(post.id);
+    // Удаляем из текущего списка, т.к. больше не в избранном
+    favorites.value = favorites.value.filter((p) => p.id !== post.id);
   } catch (e) {
     console.error("Error toggling favorite:", e);
   }
@@ -86,8 +69,8 @@ onMounted(async () => {
   if (!userId.value) return;
   try {
     const userFavorites = await getUserFavorites(userId.value);
-    const enriched = await enrichWithLikes(userFavorites);
-    favorites.value = enriched;
+    const initialized = await initReactions(userFavorites);
+    favorites.value = initialized;
   } catch (e) {
     console.error(e);
   } finally {

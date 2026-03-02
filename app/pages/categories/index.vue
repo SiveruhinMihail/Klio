@@ -1,3 +1,43 @@
+<template>
+  <div class="container mx-auto px-4 py-6">
+    <h1 class="text-3xl font-bold mb-6 text-gray-900 dark:text-white">
+      Категории
+    </h1>
+    <div v-if="loading" class="text-center text-gray-500 dark:text-gray-400">
+      Загрузка...
+    </div>
+    <div v-else-if="error" class="text-center text-red-500 dark:text-red-400">
+      Ошибка загрузки
+    </div>
+    <div
+      v-else-if="categoriesWithPosts.length === 0"
+      class="text-center text-gray-500 dark:text-gray-400"
+    >
+      Нет категорий с постами
+    </div>
+    <div
+      v-else
+      class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+    >
+      <NuxtLink
+        v-for="cat in categoriesWithPosts"
+        :key="cat.id"
+        :to="`/categories/${cat.slug}`"
+        class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md dark:shadow-gray-900 transition flex justify-between items-center border border-primary/10 dark:border-gray-700"
+      >
+        <span class="text-lg font-semibold text-gray-800 dark:text-white">{{
+          cat.name
+        }}</span>
+        <span
+          class="bg-accent/20 text-accent-dark dark:bg-accent-700 dark:text-accent-200 px-2 py-1 rounded text-sm font-medium"
+        >
+          {{ cat.postCount }}
+        </span>
+      </NuxtLink>
+    </div>
+  </div>
+</template>
+
 <script setup lang="ts">
 const supabase = useSupabaseClient();
 const loading = ref(true);
@@ -6,7 +46,6 @@ const categoriesWithPosts = ref<any[]>([]);
 
 async function loadCategoriesWithCounts() {
   try {
-    // Получаем все категории
     const { data: categories, error: catError } = await supabase
       .from("category")
       .select("id, name, slug")
@@ -18,10 +57,8 @@ async function loadCategoriesWithCounts() {
       return;
     }
 
-    // Для каждой категории получаем количество одобренных постов
     const enriched = await Promise.all(
       categories.map(async (cat) => {
-        // Получаем ID постов из связующей таблицы
         const { data: postIdsData } = await supabase
           .from("post_categories")
           .select("post_id")
@@ -33,7 +70,6 @@ async function loadCategoriesWithCounts() {
 
         const postIds = postIdsData.map((p) => p.post_id);
 
-        // Считаем количество одобренных постов
         const { count } = await supabase
           .from("post")
           .select("*", { count: "exact", head: true })
@@ -47,7 +83,6 @@ async function loadCategoriesWithCounts() {
       }),
     );
 
-    // Фильтруем только те, у которых есть посты
     categoriesWithPosts.value = enriched.filter((cat) => cat.postCount > 0);
   } catch (e: any) {
     error.value = e.message;
@@ -58,35 +93,3 @@ async function loadCategoriesWithCounts() {
 
 onMounted(loadCategoriesWithCounts);
 </script>
-
-<template>
-  <div class="container mx-auto px-4 py-6">
-    <h1 class="text-3xl font-bold mb-6">Категории</h1>
-    <div v-if="loading" class="text-center">Загрузка...</div>
-    <div v-else-if="error" class="text-center text-red-500">
-      Ошибка загрузки
-    </div>
-    <div
-      v-else-if="categoriesWithPosts.length === 0"
-      class="text-center text-gray-500"
-    >
-      Нет категорий с постами
-    </div>
-    <div
-      v-else
-      class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
-    >
-      <NuxtLink
-        v-for="cat in categoriesWithPosts"
-        :key="cat.id"
-        :to="`/categories/${cat.slug}`"
-        class="p-4 bg-white rounded shadow hover:shadow-md transition flex justify-between items-center"
-      >
-        <span class="text-lg font-semibold">{{ cat.name }}</span>
-        <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">
-          {{ cat.postCount }}
-        </span>
-      </NuxtLink>
-    </div>
-  </div>
-</template>

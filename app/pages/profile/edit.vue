@@ -1,11 +1,14 @@
 <template>
   <div class="container mx-auto px-4 py-6 max-w-5xl">
-    <h1 class="text-3xl font-bold mb-6 text-gray-800">Редактировать профиль</h1>
+    <h1 class="text-3xl font-bold mb-6 text-gray-900 dark:text-white">
+      Редактировать профиль
+    </h1>
 
     <form @submit.prevent="handleSubmit" class="space-y-6">
       <!-- Аватар -->
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2"
+        <label
+          class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
           >Аватар</label
         >
         <AvatarUpload />
@@ -13,71 +16,79 @@
 
       <!-- Имя пользователя (username) -->
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1"
+        <label
+          class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
           >Имя пользователя *</label
         >
         <input
           v-model="form.username"
           type="text"
           required
-          class="w-full px-4 py-2 bg-white border border-primary/20 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition"
-          :class="{ 'border-red-500': usernameError }"
+          class="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-primary/20 dark:border-gray-700 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition text-gray-900 dark:text-gray-100"
+          :class="{ 'border-red-500 dark:border-red-400': usernameError }"
           @blur="validateUsername"
           placeholder="your_username"
         />
-        <p v-if="usernameError" class="text-xs text-red-500 mt-1">
+        <p
+          v-if="usernameError"
+          class="text-xs text-red-500 dark:text-red-400 mt-1"
+        >
           {{ usernameError }}
         </p>
-        <p v-else class="text-xs text-gray-500 mt-1">
+        <p v-else class="text-xs text-gray-500 dark:text-gray-400 mt-1">
           Только латиница, цифры и подчёркивание. Уникальное имя.
         </p>
       </div>
 
       <!-- Отображаемое имя (use) -->
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1"
+        <label
+          class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
           >Отображаемое имя</label
         >
         <input
           v-model="form.use"
           type="text"
-          class="w-full px-4 py-2 bg-white border border-primary/20 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition"
+          class="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-primary/20 dark:border-gray-700 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition text-gray-900 dark:text-gray-100"
           placeholder="Имя для отображения"
         />
       </div>
 
       <!-- Описание (Markdown) с предпросмотром -->
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1"
+        <label
+          class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
           >Описание (поддерживает Markdown)</label
         >
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <textarea
             v-model="form.description"
             rows="8"
-            class="w-full px-4 py-2 bg-white border border-primary/20 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition font-mono text-sm resize-y"
+            class="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-primary/20 dark:border-gray-700 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition font-mono text-sm resize-y text-gray-900 dark:text-gray-100"
             placeholder="Введите описание в Markdown..."
           ></textarea>
           <div
-            class="prose prose-sm max-w-none p-4 bg-gray-50 border border-primary/20 rounded-lg overflow-auto h-[300px]"
+            class="prose prose-sm max-w-none p-4 bg-gray-50 dark:bg-gray-900 border border-primary/20 dark:border-gray-700 rounded-lg overflow-auto h-[300px] dark:prose-invert"
             v-html="renderedPreview"
           />
         </div>
       </div>
 
       <!-- Кнопки -->
-      <div class="flex justify-end gap-3 pt-4 border-t border-primary/10">
+      <div
+        class="flex justify-end gap-3 pt-4 border-t border-primary/10 dark:border-gray-700"
+      >
         <button
           type="button"
           @click="cancel"
-          class="px-5 py-2 border border-primary/30 rounded-lg text-primary hover:bg-primary/5 transition"
+          class="px-5 py-2 border border-primary/30 dark:border-gray-600 rounded-lg text-primary dark:text-accent-400 hover:bg-primary/5 dark:hover:bg-gray-800 transition"
         >
           Отмена
         </button>
         <button
           type="submit"
           :disabled="submitting || !!usernameError"
-          class="px-5 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
+          class="px-5 py-2 bg-accent hover:bg-accent-dark dark:bg-accent-600 dark:hover:bg-accent-700 text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {{ submitting ? "Сохранение..." : "Сохранить" }}
         </button>
@@ -91,9 +102,6 @@ import { ref, computed, onMounted } from "vue";
 import MarkdownIt from "markdown-it";
 import AvatarUpload from "~/components/AvatarUpload.vue";
 
-definePageMeta({
-  composable: "auth",
-});
 
 const { updateProfile, checkUsernameUnique } = useUser();
 const { userId, loadProfile } = useAuth();
@@ -170,7 +178,7 @@ async function handleSubmit() {
 
     await updateProfile(profile.value.auth_uid, updates);
     await loadProfile(true);
-    await navigateTo("/profile");
+    await navigateTo(`/profile/${profile.value.auth_uid}`);
   } catch (e: any) {
     console.error(e);
     alert("Ошибка при сохранении: " + e.message);

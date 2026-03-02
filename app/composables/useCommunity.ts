@@ -32,7 +32,8 @@ export const useCommunity = () => {
       `,
       )
       .eq("user_id", userId)
-      .in("role", ["member", "admin"]);
+      .in("role", ["member", "admin"]); // ✅ фильтр – только участники и админы
+
     if (error) throw error;
     return data.map((item) => ({
       ...item.community,

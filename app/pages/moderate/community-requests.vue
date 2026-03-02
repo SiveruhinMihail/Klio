@@ -1,6 +1,6 @@
 <template>
   <div class="container mx-auto px-4 py-6 max-w-6xl">
-    <h1 class="text-3xl font-bold mb-6 text-gray-800">
+    <h1 class="text-3xl font-bold mb-6 text-gray-900 dark:text-white">
       Заявки на верификацию сообществ
     </h1>
 
@@ -11,29 +11,30 @@
           v-model="globalSearchQuery"
           type="text"
           placeholder="Поиск по всем сообществам..."
-          class="w-full px-4 py-2 pl-10 bg-white border border-primary/20 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition"
+          class="w-full px-4 py-2 pl-10 bg-white dark:bg-gray-800 border border-primary/20 dark:border-gray-700 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition text-gray-900 dark:text-gray-100"
           @input="debouncedGlobalSearch"
         />
         <MagnifyingGlassIcon
-          class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-primary/50"
+          class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-primary/50 dark:text-gray-500"
         />
       </div>
       <!-- Результаты глобального поиска -->
       <div
         v-if="globalSearchResults.length"
-        class="mt-2 bg-white border border-primary/20 rounded-lg p-2 max-h-60 overflow-y-auto shadow-lg"
+        class="mt-2 bg-white dark:bg-gray-800 border border-primary/20 dark:border-gray-700 rounded-lg p-2 max-h-60 overflow-y-auto shadow-lg"
       >
         <NuxtLink
           v-for="c in globalSearchResults"
           :key="c.id"
           :to="`/communities/${c.id}`"
-          class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded text-gray-700"
+          class="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded text-gray-700 dark:text-gray-300"
         >
           <img
             :src="c.avatar || defaultAvatar"
             class="w-6 h-6 rounded-full object-cover"
             alt=""
             @error="handleImageError"
+            loading="lazy"
           />
           <span>{{ c.name }}</span>
           <CheckBadgeIcon v-if="c.patent" class="w-4 h-4 text-accent ml-auto" />
@@ -48,21 +49,24 @@
           v-model="localSearchQuery"
           type="text"
           placeholder="Фильтр по названию сообщества в заявках..."
-          class="w-full px-4 py-2 pl-10 bg-white border border-primary/20 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition"
+          class="w-full px-4 py-2 pl-10 bg-white dark:bg-gray-800 border border-primary/20 dark:border-gray-700 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition text-gray-900 dark:text-gray-100"
         />
         <MagnifyingGlassIcon
-          class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-primary/50"
+          class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-primary/50 dark:text-gray-500"
         />
       </div>
     </div>
 
     <!-- Список заявок -->
-    <div v-if="loading" class="text-center py-10 text-gray-500">
+    <div
+      v-if="loading"
+      class="text-center py-10 text-gray-500 dark:text-gray-400"
+    >
       Загрузка...
     </div>
     <div
       v-else-if="filteredRequests.length === 0"
-      class="text-center py-10 text-gray-500"
+      class="text-center py-10 text-gray-500 dark:text-gray-400"
     >
       Нет подходящих заявок.
     </div>
@@ -70,7 +74,7 @@
       <div
         v-for="req in filteredRequests"
         :key="req.id"
-        class="bg-white border border-primary/10 rounded-lg p-6 shadow-sm"
+        class="bg-white dark:bg-gray-800 border border-primary/10 dark:border-gray-700 rounded-lg p-6 shadow-sm"
       >
         <div class="flex flex-col lg:flex-row gap-6">
           <!-- Карточка сообщества -->
@@ -81,17 +85,17 @@
           <!-- Детали заявки и действия -->
           <div class="flex-1 flex flex-col justify-between">
             <div>
-              <p class="text-sm text-gray-500">
+              <p class="text-sm text-gray-500 dark:text-gray-400">
                 Запрошено: {{ formatDate(req.created_at) }}
               </p>
-              <p class="text-sm text-gray-500">
+              <p class="text-sm text-gray-500 dark:text-gray-400">
                 Текущий рейтинг: {{ req.community.rating }}
               </p>
-              <p class="text-sm text-gray-500 mt-2">
+              <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
                 Владелец:
                 <NuxtLink
                   :to="`/profile/${req.community.owner?.auth_uid}`"
-                  class="text-accent hover:underline"
+                  class="text-accent hover:underline dark:text-accent-400"
                 >
                   {{
                     req.community.owner?.use || req.community.owner?.username
@@ -102,14 +106,16 @@
             <div class="flex gap-3 mt-4">
               <button
                 @click="approve(req.id)"
-                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2"
+                class="px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 text-white rounded-lg transition flex items-center gap-2"
+                title="Одобрить заявку и выдать галочку"
               >
                 <CheckIcon class="w-5 h-5" />
                 Одобрить
               </button>
               <button
                 @click="reject(req.id)"
-                class="px-4 py-2 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 transition flex items-center gap-2"
+                class="px-4 py-2 border border-red-600 text-red-600 hover:bg-red-50 dark:border-red-500 dark:text-red-400 dark:hover:bg-red-950 rounded-lg transition flex items-center gap-2"
+                title="Отклонить заявку"
               >
                 <XMarkIcon class="w-5 h-5" />
                 Отклонить
@@ -132,6 +138,10 @@ import {
 } from "@heroicons/vue/24/outline";
 import CommunityCard from "~/components/CommunityCard.vue";
 import { useCommunity } from "~/composables/useCommunity";
+
+definePageMeta({
+  ssr: false, // отключаем SSR, так как это защищённая зона и не требует SEO
+})
 
 const { getVerificationRequests, approveVerification, rejectVerification } =
   useCommunity();

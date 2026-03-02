@@ -78,6 +78,7 @@ onMounted(() => {
           :src="currentImage"
           class="max-w-full max-h-screen object-contain"
           alt="Full size"
+          loading="lazy"
         />
       </div>
 

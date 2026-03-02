@@ -7,18 +7,26 @@
         :key="status.value"
         @click="selectedStatus = status.value"
         :class="[
-          'px-3 py-1 rounded',
+          'px-3 py-1 rounded text-sm font-medium transition',
           selectedStatus === status.value
-            ? 'bg-accent text-white'
-            : 'bg-gray-200 hover:bg-gray-300',
+            ? 'bg-accent text-white dark:bg-accent-600'
+            : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600',
         ]"
       >
         {{ status.label }}
       </button>
     </div>
 
-    <div v-if="loading" class="text-center py-4">Загрузка...</div>
-    <div v-else-if="posts.length === 0" class="text-center py-4 text-gray-500">
+    <div
+      v-if="loading"
+      class="text-center py-4 text-gray-500 dark:text-gray-400"
+    >
+      Загрузка...
+    </div>
+    <div
+      v-else-if="posts.length === 0"
+      class="text-center py-4 text-gray-500 dark:text-gray-400"
+    >
       Нет постов
     </div>
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -36,7 +44,7 @@
         >
           <NuxtLink
             :to="`/edit-post/${post.id}`"
-            class="text-accent hover:underline text-sm"
+            class="text-accent hover:underline dark:text-accent-400 text-sm"
           >
             Редактировать
           </NuxtLink>
@@ -46,7 +54,10 @@
 
     <!-- Пагинация -->
     <div v-if="hasMore" class="text-center mt-4">
-      <button @click="loadMore" class="text-accent hover:underline">
+      <button
+        @click="loadMore"
+        class="text-accent hover:underline dark:text-accent-400"
+      >
         Загрузить ещё
       </button>
     </div>
@@ -54,16 +65,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, watch } from "vue";
 import PostCard from "./PostCard.vue";
+import { useSupabaseClient } from "#imports";
+import { useAuth } from "~/composables/useAuth";
+import { useReactionState } from "~/composables/useReactionState";
 
 const props = defineProps<{
-  userId: number | undefined; // разрешаем undefined
+  userId: number | undefined;
   isOwner: boolean;
 }>();
 
 const supabase = useSupabaseClient();
-const { toggleFavorite } = useFavorites();
+const { userId: currentUserId } = useAuth();
+const { initPostReactions, toggleLike, toggleFavorite } = useReactionState();
 
 const statuses = [
   { value: "approved", label: "Опубликованные" },
@@ -78,15 +93,18 @@ const page = ref(0);
 const limit = 10;
 const hasMore = ref(true);
 
-// Загружаем посты только если userId определён
+// ----- Функции загрузки -----
 async function loadPosts(reset = false) {
-  if (!props.userId) return; // защита
+  if (!props.userId) return;
+  if (loading.value) return;
+
   if (reset) {
     page.value = 0;
     posts.value = [];
     hasMore.value = true;
   }
   if (!hasMore.value) return;
+
   loading.value = true;
   try {
     const from = page.value * limit;
@@ -105,6 +123,7 @@ async function loadPosts(reset = false) {
       .eq("moderation_status", selectedStatus.value)
       .order("created_at", { ascending: false })
       .range(from, to);
+
     if (error) throw error;
     if (data) {
       const enriched = await enrichPosts(data);
@@ -119,48 +138,68 @@ async function loadPosts(reset = false) {
   }
 }
 
-// Обогащение постов (лайки, избранное)
 async function enrichPosts(postsData: any[]) {
   if (!props.isOwner) return postsData; // для чужих не нужно обогащать
+
   const postIds = postsData.map((p) => p.id);
+
   let likedSet = new Set<number>();
   let favoritedSet = new Set<number>();
 
-  if (props.isOwner) {
-    const { data: likes } = await supabase
-      .from("like_to_post")
-      .select("post_id")
-      .eq("user_id", props.userId as number)
-      .in("post_id", postIds);
-    likedSet = new Set(likes?.map((l) => l.post_id) || []);
+  if (props.isOwner && currentUserId.value) {
+    const [likesRes, favsRes] = await Promise.all([
+      supabase
+        .from("like_to_post")
+        .select("post_id")
+        .eq("user_id", currentUserId.value)
+        .in("post_id", postIds),
+      supabase
+        .from("favorites")
+        .select("post_id")
+        .eq("user_id", currentUserId.value)
+        .in("post_id", postIds),
+    ]);
 
-    const { data: favorites } = await supabase
-      .from("favorites")
-      .select("post_id")
-      .eq("user_id", props.userId as number)
-      .in("post_id", postIds);
-    favoritedSet = new Set(favorites?.map((f) => f.post_id) || []);
+    likedSet = new Set(likesRes.data?.map((l) => l.post_id) || []);
+    favoritedSet = new Set(favsRes.data?.map((f) => f.post_id) || []);
   }
 
-  return postsData.map((post) => ({
-    ...post,
-    rating: post.likes?.[0]?.count || 0,
-    isLiked: likedSet.has(post.id),
-    isFavorited: favoritedSet.has(post.id),
-  }));
+  // Инициализируем глобальное состояние для каждого поста
+  postsData.forEach((post) => {
+    initPostReactions(
+      post.id,
+      likedSet.has(post.id),
+      post.likes?.[0]?.count || 0,
+      favoritedSet.has(post.id),
+    );
+  });
+
+  // Возвращаем исходные данные (без isLiked/isFavorited)
+  return postsData;
 }
 
-// Следим за изменением статуса и перезагружаем
-watch(selectedStatus, () => {
-  if (props.userId) loadPosts(true);
-});
+function loadMore() {
+  if (props.userId) loadPosts();
+}
 
-// Загружаем при монтировании, если userId есть
-onMounted(() => {
-  if (props.userId) loadPosts(true);
-});
+// ----- Обработчики лайков и избранного -----
+async function handleLike(post: any) {
+  try {
+    await toggleLike(post.id);
+  } catch (e) {
+    console.error(e);
+  }
+}
 
-// Следим за изменением userId (на случай, если он появится позже)
+async function handleFavorite(post: any) {
+  try {
+    await toggleFavorite(post.id);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// ----- Watchers -----
 watch(
   () => props.userId,
   (newId) => {
@@ -169,15 +208,7 @@ watch(
   { immediate: true },
 );
 
-function loadMore() {
-  if (props.userId) loadPosts();
-}
-
-// Обработка лайка и избранного (аналогично другим компонентам)
-async function handleLike(post: any) {
-  /* ... */
-}
-async function handleFavorite(post: any) {
-  /* ... */
-}
+watch(selectedStatus, () => {
+  if (props.userId) loadPosts(true);
+});
 </script>

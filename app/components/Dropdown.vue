@@ -10,7 +10,9 @@ import {
   Squares2X2Icon,
   CheckBadgeIcon,
 } from "@heroicons/vue/24/outline";
+
 const { signOut } = useAuth();
+
 const handleLogout = async () => {
   await signOut();
 };
@@ -25,9 +27,10 @@ interface DropDown_Props {
 
 const data = defineProps<DropDown_Props>();
 </script>
+
 <template>
   <div
-    class="absolute top-full mt-2 right-0 w-80 z-50 origin-top-right rounded-lg bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none dropdown-menu"
+    class="absolute top-full mt-2 right-0 w-80 z-50 origin-top-right rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 dark:ring-gray-700 focus:outline-none dropdown-menu"
     role="menu"
     aria-orientation="vertical"
     aria-labelledby="user-menu-button"
@@ -40,6 +43,7 @@ const data = defineProps<DropDown_Props>();
         <img
           :src="avatar"
           alt="avatar"
+          loading="lazy"
           class="w-16 h-16 rounded-full shadow-md object-cover"
         />
       </div>
@@ -48,34 +52,39 @@ const data = defineProps<DropDown_Props>();
           src="https://phlyzwfqtpddvgrprngo.supabase.co/storage/v1/object/public/avatars/default.jpg"
           alt="default avatar"
           class="w-16 h-16 rounded-full shadow-md object-cover"
+          loading="lazy"
         />
       </div>
 
       <!-- Имя и email -->
       <div class="px-4 pt-3 text-center">
-        <p class="text-lg font-medium text-gray-900 truncate">{{ use }}</p>
-        <p class="text-sm text-gray-500 truncate">{{ email }}</p>
+        <p class="text-lg font-medium text-gray-900 dark:text-white truncate">
+          {{ use }}
+        </p>
+        <p class="text-sm text-gray-500 dark:text-gray-400 truncate">
+          {{ email }}
+        </p>
       </div>
 
       <!-- Пункты меню -->
-      <div class="border-t border-gray-100 mt-3">
+      <div class="border-t border-gray-100 dark:border-gray-700 mt-3">
         <!-- Профиль -->
         <NuxtLink
           :to="`/profile/${auth_uid}`"
-          class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          class="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           role="menuitem"
           tabindex="-1"
         >
-          <UserIcon class="w-5 h-5 mr-3 text-gray-400" />
+          <UserIcon class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500" />
           Профиль
         </NuxtLink>
         <NuxtLink
           :to="`/profile/edit`"
-          class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100"
+          class="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-t border-gray-100 dark:border-gray-700"
           role="menuitem"
           tabindex="-1"
         >
-          <PencilIcon class="w-5 h-5 mr-3 text-gray-400" />
+          <PencilIcon class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500" />
           Редактировать профиль
         </NuxtLink>
 
@@ -83,49 +92,55 @@ const data = defineProps<DropDown_Props>();
         <NuxtLink
           v-if="role === 'admin' || role === 'moderator'"
           to="/moderate"
-          class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100"
+          class="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-t border-gray-100 dark:border-gray-700"
           role="menuitem"
           tabindex="-1"
         >
-          <Squares2X2Icon class="w-5 h-5 mr-3 text-gray-400" />
+          <Squares2X2Icon
+            class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500"
+          />
           Панель модерации
         </NuxtLink>
         <NuxtLink
           v-if="role === 'admin' || role === 'moderator'"
           to="/moderate/community-requests"
-          class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100"
+          class="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-t border-gray-100 dark:border-gray-700"
           role="menuitem"
         >
-          <CheckBadgeIcon class="w-5 h-5 mr-3 text-gray-400" />
+          <CheckBadgeIcon
+            class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500"
+          />
           Заявки сообществ
         </NuxtLink>
         <NuxtLink
           v-if="role === 'admin' || role === 'moderator'"
           to="/moderate/community-name-requests"
-          class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100"
+          class="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-t border-gray-100 dark:border-gray-700"
           role="menuitem"
         >
-          <PencilIcon class="w-5 h-5 mr-3 text-gray-400" />
+          <PencilIcon class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500" />
           Запросы названий
         </NuxtLink>
 
         <template v-if="role === 'admin' || role === 'moderator'">
           <NuxtLink
             to="/moderate/posts"
-            class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100"
+            class="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-t border-gray-100 dark:border-gray-700"
             role="menuitem"
             tabindex="-1"
           >
-            <BriefcaseIcon class="w-5 h-5 mr-3 text-gray-400" />
+            <BriefcaseIcon
+              class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500"
+            />
             Модерация постов
           </NuxtLink>
           <NuxtLink
             to="/moderate/reports"
-            class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100"
+            class="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-t border-gray-100 dark:border-gray-700"
             role="menuitem"
             tabindex="-1"
           >
-            <FlagIcon class="w-5 h-5 mr-3 text-gray-400" />
+            <FlagIcon class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500" />
             Жалобы
           </NuxtLink>
         </template>
@@ -134,24 +149,24 @@ const data = defineProps<DropDown_Props>();
         <NuxtLink
           v-if="role === 'admin'"
           to="/moderate/create-moderator"
-          class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100"
+          class="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-t border-gray-100 dark:border-gray-700"
           role="menuitem"
           tabindex="-1"
         >
-          <PlusIcon class="w-5 h-5 mr-3 text-gray-400" />
+          <PlusIcon class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500" />
           Создать модератора
         </NuxtLink>
 
-        <!-- Мои посты -->
-
         <!-- Выход -->
         <button
-          class="flex w-full items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100"
+          class="flex w-full items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-t border-gray-100 dark:border-gray-700"
           role="menuitem"
           tabindex="-1"
           @click="handleLogout"
         >
-          <ArrowRightStartOnRectangleIcon class="w-5 h-5 mr-3 text-gray-400" />
+          <ArrowRightStartOnRectangleIcon
+            class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500"
+          />
           Выход
         </button>
       </div>
