@@ -17,29 +17,19 @@ export const useAuth = () => {
   // --- Загрузка профиля ---
   const loadProfile = async (force = false) => {
     if (loaded.value && !force) return profile.value;
-
     isLoading.value = true;
-
-    // Нет пользователя – сбрасываем профиль
     if (!authUser.value) {
       profile.value = null;
       isLoading.value = false;
       loaded.value = true;
       return null;
     }
-
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("user")
       .select("*")
       .eq("auth_uid", authUser.value.sub)
       .maybeSingle();
-
-    if (error) {
-      console.error("Ошибка загрузки профиля:", error);
-      profile.value = null;
-    } else {
-      profile.value = data;
-    }
+    profile.value = data;
     isLoading.value = false;
     loaded.value = true;
     return profile.value;

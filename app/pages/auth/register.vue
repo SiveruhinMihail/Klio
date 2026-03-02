@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { Database } from "~/types/supabase";
 
+const { loadProfile } = useAuth();
+
 definePageMeta({
   layout: "auth",
 });
@@ -90,6 +92,19 @@ const submitHandler = async (data?: {
       formErrors.value.general =
         "Пожалуйста, подтвердите ваш email. Мы отправили вам письмо.";
     } else {
+      // Ждём, пока профиль появится в БД и загрузится
+      let profileLoaded = false;
+      for (let i = 0; i < 10; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        const prof = await loadProfile(true); // принудительно загружаем профиль
+        if (prof) {
+          profileLoaded = true;
+          break;
+        }
+      }
+      if (!profileLoaded) {
+        console.warn("Профиль не загрузился после регистрации");
+      }
       await navigateTo("/");
     }
   } catch (error: any) {
