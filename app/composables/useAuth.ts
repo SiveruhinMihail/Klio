@@ -9,34 +9,34 @@ type UserUpdate = Database["public"]["Tables"]["user"]["Update"];
 export const useAuth = () => {
   const supabase = useSupabaseClient<Database>();
   const authUser = useSupabaseUser();
-  const router = useRouter();
 
-  const profile = ref<UserRow | null>(null);
-  const isLoading = ref(true);
+  const profile = useState<UserRow | null>("auth-profile", () => null);
+  const isLoading = useState("auth-loading", () => true);
+  const loaded = useState("auth-loaded", () => false);
 
   // --- Загрузка профиля ---
-  const loadProfile = async () => {
+  const loadProfile = async (force = false) => {
+    if (loaded.value && !force) return profile.value;
+    isLoading.value = true;
     if (!authUser.value) {
       profile.value = null;
       isLoading.value = false;
+      loaded.value = true;
       return null;
     }
-
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("user")
       .select("*")
       .eq("auth_uid", authUser.value.sub)
       .maybeSingle();
-
-    if (error) {
-      console.error("Ошибка загрузки профиля:", error);
-      profile.value = null;
-    } else {
-      profile.value = data;
-    }
+    profile.value = data;
     isLoading.value = false;
+    loaded.value = true;
     return profile.value;
   };
+  if (import.meta.client && !loaded.value) {
+    loadProfile();
+  }
 
   // --- Генерация уникального username ---
   const generateUniqueUsername = async (base: string): Promise<string> => {
@@ -100,8 +100,11 @@ export const useAuth = () => {
       console.error("Ошибка создания профиля:", profileError);
       throw new Error("Не удалось создать профиль");
     }
+    while (!authUser.value) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
 
-    await loadProfile();
+    await loadProfile(true);
     return authData;
   };
 
@@ -112,7 +115,12 @@ export const useAuth = () => {
       password,
     });
     if (error) throw error;
-    await loadProfile();
+
+    while (!authUser.value) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
+    await loadProfile(true);
     return data;
   };
 
@@ -120,8 +128,14 @@ export const useAuth = () => {
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
+
+    // Очищаем локальное состояние
     profile.value = null;
-    router.push("/");
+    isLoading.value = false;
+    loaded.value = false;
+
+    // Редирект на главную
+    await navigateTo("/");
   };
 
   // --- Обновление профиля ---
@@ -155,7 +169,6 @@ export const useAuth = () => {
 
   // --- Синхронный геттер ---
   const getCurrentProfile = () => profile.value;
-
   // --- Реактивные вычисления ---
   const isAuthenticated = computed(() => !!authUser.value && !!profile.value);
   const userId = computed(() => profile.value?.id);
@@ -163,15 +176,10 @@ export const useAuth = () => {
   const username = computed(() => profile.value?.username);
   const displayName = computed(() => profile.value?.use);
   const userRole = computed(() => profile.value?.role || "guest");
-  const isAdmin = computed(() => userRole.value === "admin");
-
-  // Автозагрузка профиля
-  onMounted(() => {
-    loadProfile();
-  });
+  const isModerator = computed(() => profile.value?.role === "moderator");
+  const isAdmin = computed(() => profile.value?.role === "admin");
 
   return {
-    // Состояния
     authUser,
     authUid,
     profile,
@@ -182,14 +190,13 @@ export const useAuth = () => {
     displayName,
     userRole,
     isAdmin,
-
-    // Методы
     signUp,
     signIn,
     signOut,
     updateProfile,
-    loadProfile,
-    getCurrentProfile,
+    loadProfile, // метод для ручной загрузки
     generateUniqueUsername,
+    getCurrentProfile,
+    isModerator,
   };
 };

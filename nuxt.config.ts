@@ -10,17 +10,65 @@ export default defineNuxtConfig({
     "@vueuse/nuxt",
   ],
 
+  nitro: {
+    preset: "github_pages",
+    prerender: {
+      routes: ["/", "/404.html", "/200.html", "/categories", "/communities"],
+    },
+  },
+
+  routeRules: {
+    "/categories": { ssr: false },
+    "/communities": { ssr: false },
+  },
+
+  app: {
+    baseURL: "/Klio/",
+    buildAssetsDir: "/nuxt_assets/",
+    head: {
+      link: [
+        {
+          rel: "stylesheet",
+          href: "https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css",
+        },
+        {
+          rel: "preload",
+          href: "/Klio/fonts/FiraMono-Regular.ttf", // добавлен /Klio/
+          as: "font",
+          type: "font/ttf",
+          crossorigin: "",
+        },
+        { rel: "preconnect", href: "https://phlyzwfqtpddvgrprngo.supabase.co" },
+      ],
+      script: [
+        {
+          src: "https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js",
+          defer: true,
+        },
+      ],
+    },
+  },
+
   formkit: {
     autoImport: true,
     configFile: "./formkit.config.ts",
   },
 
+  typescript: {
+    tsConfig: {
+      compilerOptions: {
+        noImplicitAny: false,
+      },
+    },
+  },
+
   supabase: {
+    types: "~/types/supabase.ts",
     url: process.env.NUXT_PUBLIC_SUPABASE_URL,
     key: process.env.NUXT_PUBLIC_SUPABASE_ANON_KEY,
     redirect: false,
     redirectOptions: {
-      login: "/login",
+      login: "/auth/login",
       callback: "/confirm",
       exclude: ["/"],
     },
@@ -33,12 +81,15 @@ export default defineNuxtConfig({
       },
     },
   },
+  serverDir: "app/server",
 
   runtimeConfig: {
+    serviceKey: process.env.NUXT_SERVICE_KEY,
     public: {
       supabaseUrl: process.env.NUXT_PUBLIC_SUPABASE_URL,
       supabaseKey: process.env.NUXT_PUBLIC_SUPABASE_KEY,
       appName: process.env.NUXT_PUBLIC_APP_NAME || "Форум",
+      baseURL: process.env.NUXT_APP_BASE_URL || "/Klio/",
     },
   },
 });
