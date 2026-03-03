@@ -369,7 +369,7 @@
                     {{ community.rating }} ⭐
                   </div>
                 </div>
-                <div class="h-32 mt-2">
+                <div class="h-48 sm:h-64">
                   <CommunityRatingChart :community="community" />
                 </div>
               </div>
