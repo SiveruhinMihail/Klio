@@ -1,13 +1,20 @@
 <template>
   <div class="container mx-auto px-4 py-6">
-    <h1 class="text-3xl font-bold mb-6 text-gray-800">{{ category?.name }}</h1>
-    <div v-if="loading" class="text-center">Загрузка...</div>
-    <div v-else-if="posts.length === 0" class="text-center text-gray-500">
+    <h1 class="text-3xl font-bold mb-6 text-gray-900 dark:text-white">
+      {{ category?.name }}
+    </h1>
+    <div v-if="loading" class="text-center text-gray-500 dark:text-gray-400">
+      Загрузка...
+    </div>
+    <div
+      v-else-if="posts.length === 0"
+      class="text-center text-gray-500 dark:text-gray-400"
+    >
       Нет постов в этой категории
     </div>
     <div v-else>
       <div
-        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 place-content-center"
       >
         <PostCard
           v-for="post in posts"
@@ -20,7 +27,7 @@
       <div v-if="hasMore" class="text-center mt-4">
         <button
           @click="loadMore"
-          class="px-6 py-2 bg-secondary text-white rounded-lg hover:bg-secondary/80 transition shadow-sm"
+          class="px-6 py-2 bg-secondary hover:bg-secondary/80 dark:bg-accent-600 dark:hover:bg-accent-700 text-white rounded-lg transition shadow-sm"
         >
           Загрузить ещё
         </button>

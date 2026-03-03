@@ -164,7 +164,7 @@ import ReportModal from "~/components/ReportModal.vue";
 
 definePageMeta({
   ssr: false, // отключаем SSR, так как это защищённая зона и не требует SEO
-})
+});
 
 const supabase = useSupabaseClient();
 const { isModerator, isAdmin } = useAuth();
@@ -263,7 +263,6 @@ const confirmReject = async (id: number) => {
     alert("Ошибка при отклонении");
   }
 };
-
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("ru-RU", {
     day: "numeric",

@@ -9,6 +9,7 @@ import {
   FlagIcon,
   Squares2X2Icon,
   CheckBadgeIcon,
+  ChatBubbleOvalLeftEllipsisIcon,
 } from "@heroicons/vue/24/outline";
 
 const { signOut } = useAuth();
@@ -86,6 +87,17 @@ const data = defineProps<DropDown_Props>();
         >
           <PencilIcon class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500" />
           Редактировать профиль
+        </NuxtLink>
+        <NuxtLink
+          :to="`/chat`"
+          class="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-t border-gray-100 dark:border-gray-700"
+          role="menuitem"
+          tabindex="-1"
+        >
+          <ChatBubbleOvalLeftEllipsisIcon
+            class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500"
+          />
+          Чаты
         </NuxtLink>
 
         <!-- Модерация (только admin) -->

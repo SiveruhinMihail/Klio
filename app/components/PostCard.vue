@@ -183,7 +183,12 @@ const currentImage = computed(() => {
   return props.post.post_images?.[currentImageIndex.value]?.url || null;
 });
 
-const commentsCount = computed(() => props.post.comments?.[0]?.count || 0);
+const commentsCount = computed(() => {
+  if (props.post.comments_count !== undefined) {
+    return props.post.comments_count[0].count;
+  }
+  return props.post.comments?.[0]?.count || 0;
+});
 
 function prevImage(event: MouseEvent) {
   event.preventDefault();

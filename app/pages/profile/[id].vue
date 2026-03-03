@@ -320,7 +320,7 @@
               >
                 Активность за последние 30 дней
               </h3>
-              <div class="h-64">
+              <div class="h-48 sm:h-64">
                 <canvas ref="chartCanvas"></canvas>
               </div>
             </div>

@@ -1,33 +1,33 @@
 <template>
   <div
-    class="border border-primary/10 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800"
+    class="border border-primary/10 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 sm:p-4 xs:p-2"
   >
     <!-- Шапка комментария -->
-    <div class="flex items-center justify-between mb-2">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
       <div class="flex items-center gap-2">
         <NuxtLink
           :to="`/profile/${comment.user?.auth_uid}`"
-          class="flex items-center gap-2 group"
+          class="flex items-center gap-1 group"
         >
           <img
-            :src="getAvatarUrl(comment.user?.avatar, 48)"
-            class="w-6 h-6 rounded-full object-cover"
+            :src="getAvatarUrl(comment.user?.avatar, 32)"
+            class="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover"
             alt=""
-            loading="lazy"
           />
           <span
-            class="font-medium group-hover:text-accent dark:group-hover:text-accent-400 text-gray-900 dark:text-white"
+            class="font-medium text-sm sm:text-base group-hover:text-accent dark:group-hover:text-accent-400"
           >
             {{ comment.user?.use || "Пользователь" }}
           </span>
         </NuxtLink>
-        <span class="text-xs text-gray-400 dark:text-gray-500">{{
-          formatDate(comment.created_at)
-        }}</span>
+        <span
+          class="text-xs text-gray-400 dark:text-gray-500 max-[550px]:hidden"
+          >{{ formatDate(comment.created_at) }}</span
+        >
       </div>
 
       <!-- Кнопки действий -->
-      <div v-if="interactive" class="flex items-center gap-2">
+      <div v-if="interactive" class="flex flex-wrap items-center gap-2 text-sm">
         <button
           @click="$emit('like', comment)"
           :disabled="!isAuthenticated"
@@ -62,7 +62,9 @@
     </div>
 
     <!-- Текст комментария -->
-    <p class="text-gray-800 dark:text-gray-200">{{ comment.text }}</p>
+    <p class="text-sm sm:text-base text-gray-800 dark:text-gray-200">
+      {{ comment.text }}
+    </p>
 
     <!-- Топ верифицированные сообщества пользователя -->
     <div v-if="topCommunities.length" class="flex flex-wrap gap-1 mt-1">

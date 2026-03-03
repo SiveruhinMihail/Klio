@@ -11,6 +11,7 @@ import {
   PencilIcon,
   FlagIcon,
   Squares2X2Icon,
+  ChatBubbleOvalLeftEllipsisIcon,
 } from "@heroicons/vue/24/outline";
 import ThemeToggle from "./ThemeToggle.vue";
 
@@ -338,6 +339,16 @@ const dropdownUser = computed(() => ({
                 class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500"
               />
               Редактировать профиль
+            </NuxtLink>
+            <NuxtLink
+              to="/chat"
+              class="flex items-center py-2 px-2 text-base text-gray-700 dark:text-gray-300 hover:text-accent dark:hover:text-accent-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md"
+              @click="closeMobileMenu"
+            >
+              <ChatBubbleOvalLeftEllipsisIcon
+                class="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500"
+              ></ChatBubbleOvalLeftEllipsisIcon>
+              Чаты сообществ
             </NuxtLink>
             <!-- Модерация (для модератора и админа) -->
             <template

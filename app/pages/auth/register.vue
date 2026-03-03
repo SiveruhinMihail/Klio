@@ -77,6 +77,8 @@ const submitHandler = async (data?: {
       phone: data.phone,
       status: "active",
       rating: 0,
+      avatar:
+        "https://phlyzwfqtpddvgrprngo.supabase.co/storage/v1/object/public/avatars/default.jpg",
       created_at: new Date().toISOString(),
     } as any);
 

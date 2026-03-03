@@ -1,18 +1,21 @@
 <template>
   <div class="container mx-auto px-4 py-6 max-w-5xl">
-    <h1 class="text-3xl font-bold mb-6 text-gray-800">Редактировать пост</h1>
+    <h1 class="text-3xl font-bold mb-6 text-gray-900 dark:text-white">
+      Редактировать пост
+    </h1>
 
     <form @submit.prevent="handleSubmit" class="space-y-6">
       <!-- Заголовок -->
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1"
+        <label
+          class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
           >Заголовок</label
         >
         <input
           v-model="form.title"
           type="text"
           required
-          class="w-full px-4 py-2 bg-white border border-primary/20 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition"
+          class="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-primary/20 dark:border-gray-700 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition text-gray-900 dark:text-gray-100"
           placeholder="Введите заголовок поста"
         />
       </div>
@@ -20,22 +23,24 @@
       <!-- Описание и предпросмотр -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1"
+          <label
+            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
             >Описание (Markdown)</label
           >
           <textarea
             v-model="form.description"
             rows="10"
-            class="w-full px-4 py-2 bg-white border border-primary/20 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition resize-y font-mono text-sm"
+            class="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-primary/20 dark:border-gray-700 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition resize-y font-mono text-sm text-gray-900 dark:text-gray-100"
             placeholder="О чём ваш пост? Поддерживается Markdown"
           ></textarea>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1"
+          <label
+            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
             >Предпросмотр</label
           >
           <div
-            class="prose prose-sm max-w-none p-4 bg-gray-50 border border-primary/20 rounded-lg overflow-auto h-[300px]"
+            class="prose prose-sm max-w-none p-4 bg-gray-50 dark:bg-gray-900 border border-primary/20 dark:border-gray-700 rounded-lg overflow-auto h-[300px] dark:prose-invert"
             v-html="renderedPreview"
           ></div>
         </div>
@@ -43,66 +48,47 @@
 
       <!-- Категории -->
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2"
+        <label
+          class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
           >Категории</label
         >
         <div class="mb-2">
           <input
             v-model="categorySearch"
             type="text"
-            class="w-full px-3 py-2 bg-white border border-primary/20 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition"
+            class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-primary/20 dark:border-gray-700 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition text-gray-900 dark:text-gray-100"
             placeholder="Поиск категорий..."
           />
         </div>
         <div
-          class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 border border-primary/20 rounded-lg bg-white"
+          class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 border border-primary/20 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800"
         >
           <label
             v-for="cat in filteredCategories"
             :key="cat.id"
-            class="flex items-center gap-2 p-2 rounded hover:bg-primary/5 cursor-pointer transition"
+            class="flex items-center gap-2 p-2 rounded hover:bg-primary/5 dark:hover:bg-gray-700 cursor-pointer transition text-gray-700 dark:text-gray-300"
           >
             <input
               type="checkbox"
               :value="cat.id"
               v-model="selectedCategories"
-              class="rounded border-primary/30 text-accent focus:ring-accent"
+              class="rounded border-primary/30 text-accent focus:ring-accent dark:bg-gray-700 dark:border-gray-600"
             />
-            <span class="text-sm text-gray-700">{{ cat.name }}</span>
+            <span class="text-sm">{{ cat.name }}</span>
           </label>
         </div>
       </div>
 
       <!-- Изображения -->
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2"
+        <label
+          class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
           >Изображения</label
         >
-        <div class="flex items-center gap-3">
-          <button
-            type="button"
-            @click="triggerFileSelect"
-            class="px-4 py-2 border border-primary/30 rounded-lg text-primary hover:bg-primary/5 transition flex items-center gap-2"
-          >
-            <PhotoIcon class="w-5 h-5" />
-            Выбрать файлы
-          </button>
-          <span v-if="selectedFiles.length" class="text-sm text-gray-500">
-            {{ selectedFiles.length }} файлов
-          </span>
-        </div>
-        <input
-          ref="fileInput"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          multiple
-          class="hidden"
-          @change="onFileSelected"
-        />
 
-        <!-- Превью существующих изображений -->
+        <!-- Текущие изображения -->
         <div v-if="existingImages.length" class="mt-3">
-          <h4 class="text-sm font-medium text-gray-700 mb-2">
+          <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Текущие изображения
           </h4>
           <div class="flex flex-wrap gap-2">
@@ -113,8 +99,7 @@
             >
               <img
                 :src="img.url"
-                class="w-20 h-20 object-cover rounded border border-primary/20"
-                loading="lazy"
+                class="w-20 h-20 object-cover rounded border border-primary/20 dark:border-gray-700"
               />
               <button
                 type="button"
@@ -128,9 +113,35 @@
           </div>
         </div>
 
+        <!-- Загрузка новых -->
+        <div class="flex items-center gap-3 mt-3">
+          <button
+            type="button"
+            @click="triggerFileSelect"
+            class="px-4 py-2 border border-primary/30 dark:border-gray-600 rounded-lg text-primary dark:text-accent-400 hover:bg-primary/5 dark:hover:bg-gray-800 transition flex items-center gap-2"
+          >
+            <PhotoIcon class="w-5 h-5" />
+            Выбрать файлы
+          </button>
+          <span
+            v-if="selectedFiles.length"
+            class="text-sm text-gray-500 dark:text-gray-400"
+          >
+            {{ selectedFiles.length }} файлов
+          </span>
+        </div>
+        <input
+          ref="fileInput"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          class="hidden"
+          @change="onFileSelected"
+        />
+
         <!-- Превью новых изображений -->
         <div v-if="newImagePreviews.length" class="mt-3">
-          <h4 class="text-sm font-medium text-gray-700 mb-2">
+          <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Новые изображения
           </h4>
           <div class="flex flex-wrap gap-2">
@@ -141,8 +152,7 @@
             >
               <img
                 :src="preview"
-                loading="lazy"
-                class="w-20 h-20 object-cover rounded border border-primary/20"
+                class="w-20 h-20 object-cover rounded border border-primary/20 dark:border-gray-700"
               />
               <button
                 type="button"
@@ -158,11 +168,13 @@
       </div>
 
       <!-- Кнопки -->
-      <div class="flex justify-end gap-3 pt-4 border-t border-primary/10">
+      <div
+        class="flex justify-end gap-3 pt-4 border-t border-primary/10 dark:border-gray-700"
+      >
         <button
           type="button"
           @click="cancel"
-          class="px-5 py-2 border border-primary/30 rounded-lg text-primary hover:bg-primary/5 transition"
+          class="px-5 py-2 border border-primary/30 dark:border-gray-600 rounded-lg text-primary dark:text-accent-400 hover:bg-primary/5 dark:hover:bg-gray-800 transition"
         >
           Отмена
         </button>
@@ -174,7 +186,7 @@
             !form.description ||
             !selectedCategories.length
           "
-          class="px-5 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition disabled:opacity-50"
+          class="px-5 py-2 bg-accent hover:bg-accent-dark dark:bg-accent-600 dark:hover:bg-accent-700 text-white rounded-lg transition disabled:opacity-50"
         >
           {{ submitting ? "Сохранение..." : "Сохранить изменения" }}
         </button>

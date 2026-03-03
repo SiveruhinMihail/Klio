@@ -1,3 +1,4 @@
+// server/api/moderation/reject-post.post.ts
 import { serverSupabaseUser } from "#supabase/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -23,11 +24,12 @@ export default defineEventHandler(async (event) => {
       runtimeConfig.serviceKey,
     );
 
+    // Обновляем статус и причину отклонения (поле moderation_comment)
     const { error } = await serviceSupabase
       .from("post")
       .update({
         moderation_status: "rejected",
-        rejection_reason: reason || null,
+        moderation_comment: reason || null,
       })
       .eq("id", postId);
 

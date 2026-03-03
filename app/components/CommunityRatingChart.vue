@@ -1,322 +1,107 @@
 <template>
-  <div class="container mx-auto px-4 py-6 max-w-5xl">
-    <h1 class="text-3xl font-bold mb-6 text-gray-900 dark:text-white">
-      Создать новый пост
-    </h1>
-
-    <form @submit.prevent="handleSubmit" class="space-y-6">
-      <!-- Заголовок -->
-      <div>
-        <label
-          class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-          >Заголовок</label
-        >
-        <input
-          v-model="form.title"
-          type="text"
-          required
-          class="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-primary/20 dark:border-gray-700 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition text-gray-900 dark:text-gray-100"
-          placeholder="Введите заголовок поста"
-        />
-      </div>
-
-      <!-- Описание и предпросмотр -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label
-            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >Описание (Markdown)</label
-          >
-          <textarea
-            v-model="form.description"
-            rows="10"
-            class="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-primary/20 dark:border-gray-700 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition resize-y font-mono text-sm text-gray-900 dark:text-gray-100"
-            placeholder="О чём ваш пост? Поддерживается Markdown"
-          ></textarea>
-        </div>
-        <div>
-          <label
-            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >Предпросмотр</label
-          >
-          <div
-            class="prose prose-sm max-w-none p-4 bg-gray-50 dark:bg-gray-900 border border-primary/20 dark:border-gray-700 rounded-lg overflow-auto h-[260px] dark:prose-invert"
-            v-html="renderedDescription"
-          ></div>
-        </div>
-      </div>
-
-      <!-- Категории с поиском и чекбоксами -->
-      <div>
-        <label
-          class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-          >Категории</label
-        >
-        <div class="mb-2">
-          <input
-            v-model="categorySearch"
-            type="text"
-            class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-primary/20 dark:border-gray-700 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent outline-none transition text-gray-900 dark:text-gray-100"
-            placeholder="Поиск категорий..."
-          />
-        </div>
+  <div class="h-48 sm:h-64 w-full">
+    <ClientOnly>
+      <canvas ref="canvas"></canvas>
+      <template #fallback>
+        <!-- Скелетон для графика -->
         <div
-          class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 border border-primary/20 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800"
-        >
-          <label
-            v-for="cat in filteredCategories"
-            :key="cat.id"
-            class="flex items-center gap-2 p-2 rounded hover:bg-primary/5 dark:hover:bg-gray-700 cursor-pointer transition text-gray-700 dark:text-gray-300"
-          >
-            <input
-              type="checkbox"
-              :value="cat.id"
-              v-model="selectedCategories"
-              class="rounded border-primary/30 text-accent focus:ring-accent dark:bg-gray-700 dark:border-gray-600"
-            />
-            <span class="text-sm">{{ cat.name }}</span>
-          </label>
-        </div>
-        <p
-          v-if="!filteredCategories.length"
-          class="text-sm text-gray-500 dark:text-gray-400 mt-2"
-        >
-          Ничего не найдено
-        </p>
-      </div>
-
-      <!-- Загрузка изображений -->
-      <div>
-        <label
-          class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-          >Изображения</label
-        >
-        <div class="flex items-center gap-3">
-          <button
-            type="button"
-            @click="triggerFileSelect"
-            class="px-4 py-2 border border-primary/30 dark:border-gray-600 rounded-lg text-primary dark:text-accent-400 hover:bg-primary/5 dark:hover:bg-gray-800 transition flex items-center gap-2"
-          >
-            <PhotoIcon class="w-5 h-5" />
-            Выбрать файлы
-          </button>
-          <span
-            v-if="selectedImages.length"
-            class="text-sm text-gray-500 dark:text-gray-400"
-          >
-            {{ selectedImages.length }}
-            {{ pluralize("файл", selectedImages.length) }}
-          </span>
-        </div>
-        <input
-          ref="fileInput"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          multiple
-          class="hidden"
-          @change="onFileSelected"
-        />
-
-        <!-- Превью изображений (оптимизированные превью не требуются, т.к. это локальные файлы) -->
-        <div
-          v-if="imagePreviews.length"
-          class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mt-3"
-        >
-          <div
-            v-for="(preview, idx) in imagePreviews"
-            :key="idx"
-            class="relative group aspect-square"
-          >
-            <img
-              :src="preview"
-              class="w-full h-full object-cover rounded-lg border border-primary/20 dark:border-gray-700"
-              alt=""
-              loading="lazy"
-            />
-            <button
-              @click="removeImage(idx)"
-              class="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm shadow-sm opacity-0 group-hover:opacity-100 transition"
-              title="Удалить"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Кнопки -->
-      <div
-        class="flex justify-end gap-3 pt-4 border-t border-primary/10 dark:border-gray-700"
-      >
-        <button
-          type="button"
-          @click="cancel"
-          class="px-5 py-2 border border-primary/30 dark:border-gray-600 rounded-lg text-primary dark:text-accent-400 hover:bg-primary/5 dark:hover:bg-gray-800 transition"
-        >
-          Отмена
-        </button>
-        <button
-          type="submit"
-          :disabled="
-            submitting ||
-            !form.title ||
-            !form.description ||
-            !selectedCategories.length
-          "
-          class="px-5 py-2 bg-accent hover:bg-accent-dark dark:bg-accent-600 dark:hover:bg-accent-700 text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {{ submitting ? "Публикация..." : "Опубликовать" }}
-        </button>
-      </div>
-    </form>
+          class="h-full w-full bg-gray-100 dark:bg-gray-800 rounded animate-pulse"
+        ></div>
+      </template>
+    </ClientOnly>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
-import { PhotoIcon } from "@heroicons/vue/24/outline";
-import MarkdownIt from "markdown-it";
-import type { Database } from "~/types/supabase";
-import { useCategories } from "~/composables/useCategories"; // новый composable
+import { ref, onMounted, onUnmounted, watch } from "vue";
+import { useCommunity } from "~/composables/useCommunity";
 
-const supabase = useSupabaseClient<Database>();
-const { userId, isAuthenticated } = useAuth();
-const { uploadFile, getPublicUrl } = useStorage();
-const { loadCategories } = useCategories(); // кэшированный загрузчик категорий
+const props = defineProps({ community: { type: Object, required: true } });
 
-const md = new MarkdownIt();
+const { getCommunityRatingHistory } = useCommunity();
+const canvas = ref<HTMLCanvasElement | null>(null);
+let chart: any = null;
 
-const form = ref({
-  title: "",
-  description: "",
-});
-
-const categorySearch = ref("");
-const allCategories = ref<{ id: number; name: string | null }[]>([]);
-const selectedCategories = ref<number[]>([]);
-
-const filteredCategories = computed(() => {
-  const query = categorySearch.value.toLowerCase();
-  return allCategories.value.filter((cat) =>
-    cat.name?.toLowerCase().includes(query),
-  );
-});
-
-const renderedDescription = computed(() => {
-  return md.render(form.value.description || "");
-});
-
-// Загрузка категорий с кэшированием
-onMounted(async () => {
-  allCategories.value = await loadCategories();
-});
-
-// Изображения
-const selectedImages = ref<File[]>([]);
-const imagePreviews = ref<string[]>([]);
-const fileInput = ref<HTMLInputElement | null>(null);
-const submitting = ref(false);
-
-function triggerFileSelect() {
-  fileInput.value?.click();
-}
-
-function onFileSelected(event: Event) {
-  const files = (event.target as HTMLInputElement).files;
-  if (!files) return;
-  const newFiles = Array.from(files);
-  selectedImages.value = [...selectedImages.value, ...newFiles];
-  newFiles.forEach((file) => {
-    const url = URL.createObjectURL(file);
-    imagePreviews.value.push(url);
-  });
-  (event.target as HTMLInputElement).value = "";
-}
-
-function removeImage(index: number) {
-  const url = imagePreviews.value[index];
-  if (url) URL.revokeObjectURL(url);
-  imagePreviews.value.splice(index, 1);
-  selectedImages.value.splice(index, 1);
-}
-
-function pluralize(word: string, count: number) {
-  return word + (count % 10 === 1 && count % 100 !== 11 ? "" : "ов");
-}
-
-async function handleSubmit() {
-  if (!isAuthenticated.value || !userId.value) {
-    alert("Необходимо авторизоваться");
-    return;
-  }
-
-  submitting.value = true;
-
+async function loadHistory() {
+  if (!props.community?.id) return;
   try {
-    // 1. Создаём пост
-    const { data: post, error: postError } = await supabase
-      .from("post")
-      .insert({
-        author_id: userId.value,
-        title: form.value.title,
-        description: form.value.description,
-        status: "published",
-        moderation_status: "pending",
-        created_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-    if (postError) throw postError;
-
-    // 2. Загружаем изображения
-    const imageUrls: string[] = [];
-    if (selectedImages.value.length) {
-      for (const file of selectedImages.value) {
-        const uploadResult = await uploadFile(
-          "posts",
-          file,
-          post.id.toString(),
-          { upsert: false, optimize: true },
-        );
-        const publicUrl = getPublicUrl("posts", uploadResult.path);
-        imageUrls.push(publicUrl);
-      }
-
-      const imageRecords = imageUrls.map((url, idx) => ({
-        post_id: post.id,
-        url,
-        sort_order: idx,
-      }));
-      const { error: imagesError } = await supabase
-        .from("post_images")
-        .insert(imageRecords);
-      if (imagesError) throw imagesError;
-    }
-
-    // 3. Привязываем категории
-    const categoryLinks = selectedCategories.value.map((catId) => ({
-      post_id: post.id,
-      category_id: catId,
-    }));
-    const { error: linkError } = await supabase
-      .from("post_categories")
-      .insert(categoryLinks);
-    if (linkError) throw linkError;
-
-    await navigateTo(`/post/${post.id}`);
-  } catch (err: any) {
-    console.error("Ошибка создания поста:", err);
-    alert("Ошибка при создании поста: " + err.message);
-  } finally {
-    submitting.value = false;
+    const history = await getCommunityRatingHistory(props.community.id, 30);
+    await renderChart(history.labels, history.values);
+  } catch (e) {
+    console.error("Error loading community rating history:", e);
   }
 }
 
-function cancel() {
-  navigateTo("/");
+async function renderChart(labels: string[], data: number[]) {
+  if (!canvas.value) return;
+
+  // Динамический импорт Chart.js только на клиенте
+  const { default: Chart } = await import("chart.js/auto");
+
+  if (chart) chart.destroy();
+
+  const isDark = document.documentElement.classList.contains("dark");
+
+  chart = new Chart(canvas.value, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Рейтинг",
+          data,
+          borderColor: "#3498db",
+          backgroundColor: "rgba(52,152,219,0.1)",
+          tension: 0.2,
+          pointRadius: 2,
+          pointBackgroundColor: isDark ? "#60a5fa" : "#3498db",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: false,
+          grid: {
+            color: isDark ? "#374151" : "#e5e7eb",
+          },
+          ticks: {
+            color: isDark ? "#9ca3af" : "#6b7280",
+          },
+        },
+        x: {
+          ticks: {
+            color: isDark ? "#9ca3af" : "#6b7280",
+            maxTicksLimit: 6,
+          },
+          grid: {
+            display: false,
+          },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+      },
+    },
+  });
 }
+
+onMounted(loadHistory);
+
+watch(() => props.community, loadHistory, { deep: true });
+
+// Перерисовка при смене темы
+const colorMode = useColorMode();
+watch(
+  () => colorMode.value,
+  () => {
+    if (canvas.value) loadHistory();
+  },
+);
 
 onUnmounted(() => {
-  imagePreviews.value.forEach((url) => URL.revokeObjectURL(url));
+  if (chart) chart.destroy();
 });
 </script>
